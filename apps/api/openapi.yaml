@@ -1,0 +1,235 @@
+openapi: 3.0.3
+info:
+  title: SCOS Order Management API
+  version: 1.0.0
+  description: API for managing SCOS Station P1 Pro orders with multi-warehouse fulfillment
+
+paths:
+  /api/orders/verify:
+    post:
+      summary: Verify an order quote
+      description: Calculate pricing, discount, shipping, and fulfillment plan without persisting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '200':
+          description: Order quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderQuote'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/orders:
+    post:
+      summary: Submit an order
+      description: Persist an order with transactional stock decrement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitOrderResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Invalid order or insufficient stock
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/orders/{orderNumber}:
+    get:
+      summary: Get order details
+      parameters:
+        - name: orderNumber
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ORD-\d{6,}$'
+      responses:
+        '200':
+          description: Order details with fulfillment breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/warehouses:
+    get:
+      summary: List warehouses with current stock
+      responses:
+        '200':
+          description: Warehouse list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WarehouseResponse'
+
+components:
+  schemas:
+    OrderRequest:
+      type: object
+      required: [quantity, latitude, longitude]
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+
+    FulfillmentLeg:
+      type: object
+      properties:
+        warehouseId:
+          type: integer
+        warehouseName:
+          type: string
+        quantity:
+          type: integer
+        distanceKm:
+          type: number
+        shippingCost:
+          type: number
+
+    OrderQuote:
+      type: object
+      properties:
+        subtotal:
+          type: number
+        discountPercent:
+          type: number
+        discountAmount:
+          type: number
+        shippingCost:
+          type: number
+        total:
+          type: number
+        valid:
+          type: boolean
+        reason:
+          type: string
+        fulfillmentPlan:
+          type: array
+          items:
+            $ref: '#/components/schemas/FulfillmentLeg'
+
+    SubmitOrderResponse:
+      type: object
+      properties:
+        orderNumber:
+          type: string
+        quote:
+          $ref: '#/components/schemas/OrderQuote'
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        orderNumber:
+          type: string
+        quantity:
+          type: integer
+        subtotal:
+          type: number
+        discountAmount:
+          type: number
+        shippingCost:
+          type: number
+        total:
+          type: number
+        latitude:
+          type: number
+        longitude:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: integer
+              productName:
+                type: string
+              quantity:
+                type: integer
+              unitPrice:
+                type: number
+              discountPercent:
+                type: number
+              fulfillments:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FulfillmentLeg'
+
+    WarehouseResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        stock:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: integer
+              productName:
+                type: string
+              quantity:
+                type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [VALIDATION_ERROR, INVALID_ORDER, INSUFFICIENT_STOCK, NOT_FOUND]
+        reason:
+          type: string
