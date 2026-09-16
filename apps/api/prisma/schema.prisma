@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Warehouse {
+  id        Int              @id @default(autoincrement())
+  name      String           @unique
+  latitude  Float
+  longitude Float
+  stock     WarehouseStock[]
+  fulfillments OrderFulfillment[]
+
+  @@map("warehouses")
+}
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  sku         String           @unique
+  name        String
+  unitPrice   Float            @map("unit_price")
+  weightGrams Int              @map("weight_grams")
+  stock       WarehouseStock[]
+  orderLines  OrderLine[]
+
+  @@map("products")
+}
+
+model WarehouseStock {
+  warehouseId Int       @map("warehouse_id")
+  productId   Int       @map("product_id")
+  quantity    Int
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@id([warehouseId, productId])
+  @@map("warehouse_stock")
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  orderNumber    String      @unique @map("order_number")
+  quantity       Int
+  subtotal       Float
+  discountAmount Float       @map("discount_amount")
+  shippingCost   Float       @map("shipping_cost")
+  total          Float
+  latitude       Float
+  longitude      Float
+  createdAt      DateTime    @default(now()) @map("created_at")
+  lines          OrderLine[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id              Int                @id @default(autoincrement())
+  orderId         Int                @map("order_id")
+  productId       Int                @map("product_id")
+  quantity        Int
+  unitPrice       Float              @map("unit_price")
+  discountPercent Float              @map("discount_percent")
+  order           Order              @relation(fields: [orderId], references: [id])
+  product         Product            @relation(fields: [productId], references: [id])
+  fulfillments    OrderFulfillment[]
+
+  @@map("order_lines")
+}
+
+model OrderFulfillment {
+  id          Int       @id @default(autoincrement())
+  orderLineId Int       @map("order_line_id")
+  warehouseId Int       @map("warehouse_id")
+  quantity    Int
+  distanceKm  Float     @map("distance_km")
+  shippingCost Float    @map("shipping_cost")
+  orderLine   OrderLine @relation(fields: [orderLineId], references: [id])
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@map("order_fulfillments")
+}
