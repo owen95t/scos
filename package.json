@@ -9,6 +9,8 @@
     "test:api": "pnpm --filter @scos/api test",
     "test:web": "pnpm --filter @scos/web test",
     "test:integration": "./scripts/test-integration.sh",
+    "postman:generate": "node scripts/generate-postman.mjs",
+    "postman:check": "node scripts/generate-postman.mjs --check",
     "db:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "db:down": "docker compose -f docker-compose.test.yml down",
     "db:migrate": "cd apps/api && DATABASE_URL=postgresql://scos_test:scos_test@localhost:5433/scos_test npx prisma migrate deploy",
@@ -20,6 +22,7 @@
   },
   "packageManager": "pnpm@9.15.4",
   "devDependencies": {
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "openapi-to-postmanv2": "^6.3.3"
   }
 }

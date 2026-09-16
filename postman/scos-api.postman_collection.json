@@ -1,0 +1,231 @@
+{
+  "info": {
+    "_postman_id": "c8b4a1d2-5e6f-4a7b-9c8d-1e2f3a4b5c6d",
+    "name": "SCOS Order Management API",
+    "description": "Requests for the SCOS Order Management API. Start the API locally with `pnpm dev` and run the order requests in sequence so the submitted order number is available to the lookup request. No authentication is configured by the API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "quantity",
+      "value": "10",
+      "type": "string"
+    },
+    {
+      "key": "latitude",
+      "value": "34.0",
+      "type": "string"
+    },
+    {
+      "key": "longitude",
+      "value": "-118.0",
+      "type": "string"
+    },
+    {
+      "key": "orderNumber",
+      "value": "ORD-000001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Verify order quote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": {{quantity}},\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "verify"
+              ]
+            },
+            "description": "Calculate pricing, discount, shipping, and the fulfillment plan without creating an order."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Quote contains a fulfillment plan', function () {",
+                  "    pm.expect(body).to.have.property('valid');",
+                  "    pm.expect(body.fulfillmentPlan).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Submit order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": {{quantity}},\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Persist an order and decrement the required warehouse stock transactionally. The test script stores the returned order number in the collection variable `orderNumber`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Order number is returned', function () {",
+                  "    pm.expect(body.orderNumber).to.match(/^ORD-\\d{6,}$/);",
+                  "    pm.expect(body.quote).to.be.an('object');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('orderNumber', body.orderNumber);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get order details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderNumber}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderNumber}}"
+              ]
+            },
+            "description": "Get an order and its fulfillment breakdown. Run `Submit order` first, or set the collection variable `orderNumber` manually."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Order details contain fulfillment lines', function () {",
+                  "    pm.expect(body.orderNumber).to.eql(pm.collectionVariables.get('orderNumber'));",
+                  "    pm.expect(body.lines).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Warehouses",
+      "item": [
+        {
+          "name": "List warehouses and stock",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/warehouses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "warehouses"
+              ]
+            },
+            "description": "List all warehouses with their current product stock."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Warehouse stock list is returned', function () {",
+                  "    pm.expect(body).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(body[0]).to.have.property('stock').that.is.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}

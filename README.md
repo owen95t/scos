@@ -61,6 +61,10 @@ Frontend lives in a separate repo: `scos-fe/`
 
 Swagger UI is served at `/docs` when the API is running.
 
+Import [postman/scos-api.postman_collection.json](postman/scos-api.postman_collection.json) into Postman to exercise the API. Its `baseUrl` collection variable defaults to `http://localhost:3001`; run `Submit order` before `Get order details` so the generated order number is captured automatically.
+
+The collection is synchronized from `apps/api/openapi.yaml`. Run `pnpm postman:generate` after changing the API specification. `pnpm postman:check` verifies that the committed collection matches the specification and can be used in CI.
+
 ### Endpoints
 
 - `POST /api/orders/verify` — Get a quote (no side effects)
