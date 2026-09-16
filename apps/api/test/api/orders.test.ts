@@ -24,6 +24,7 @@ describe.skipIf(!DATABASE_URL)("Orders API", () => {
   });
 
   beforeEach(async () => {
+    await prisma.$executeRawUnsafe(`DELETE FROM audit_log`);
     await prisma.orderFulfillment.deleteMany();
     await prisma.orderLine.deleteMany();
     await prisma.order.deleteMany();

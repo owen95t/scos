@@ -105,6 +105,41 @@ NODE_ENV=development  # "production" outputs JSON, anything else uses pino-prett
 
 Logged events: order verify/submit, allocation decisions, stock warnings, validation errors, unhandled errors.
 
+## Audit Trail
+
+Every state mutation writes durable records to the `audit_log` table, inside the same database transaction as the data change — if the transaction rolls back, the audit entry does too.
+
+### What's captured
+
+| Action | Entity | Data |
+|--------|--------|------|
+| `ORDER_CREATED` | `order` / `ORD-XXXXXX` | orderId, quantity, lat/lng, subtotal, discountAmount, shippingCost, total, leg count |
+| `STOCK_DECREMENTED` | `warehouse_stock` / `{warehouseId}:1` | warehouseId, warehouseName, quantityBefore, quantityAfter, decremented, orderNumber |
+
+Each entry carries `request_id` (matches log `reqId`) and `timestamp`. The `actor` column is nullable — ready for when authentication is added.
+
+### Querying
+
+```sql
+-- Full trace for a specific order
+SELECT * FROM audit_log WHERE entity_id = 'ORD-000042' ORDER BY id;
+
+-- All stock changes for a warehouse
+SELECT * FROM audit_log
+WHERE entity_type = 'warehouse_stock' AND entity_id LIKE '3:%'
+ORDER BY timestamp DESC;
+
+-- Everything from a single request
+SELECT * FROM audit_log WHERE request_id = 'req-a3f8b2c1';
+
+-- Recent order creations
+SELECT * FROM audit_log WHERE action = 'ORDER_CREATED' ORDER BY timestamp DESC LIMIT 20;
+```
+
+### Order Status
+
+Orders have a `status` field (default: `confirmed`) and `updated_at` timestamp. Warehouse stock rows also track `updated_at`. These are returned in the `GET /api/orders/:orderNumber` response.
+
 ## Secret Scanning
 
 [gitleaks](https://github.com/gitleaks/gitleaks) scan for hardcoded secrets at two points:

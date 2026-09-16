@@ -179,7 +179,12 @@ components:
           type: number
         longitude:
           type: number
+        status:
+          type: string
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
         lines:

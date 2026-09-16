@@ -19,14 +19,16 @@ export function orderRoutes(
       schema: { body: verifyOrderSchema },
     }, async (request) => {
       const { quantity, latitude, longitude } = request.body;
-      return orderService.verifyOrder(request.log, quantity, latitude, longitude);
+      const ctx = { log: request.log, requestId: request.id };
+      return orderService.verifyOrder(ctx, quantity, latitude, longitude);
     });
 
     app.post("/orders", {
       schema: { body: submitOrderSchema },
     }, async (request, reply) => {
       const { quantity, latitude, longitude } = request.body;
-      const result = await orderService.submitOrder(request.log, quantity, latitude, longitude);
+      const ctx = { log: request.log, requestId: request.id };
+      const result = await orderService.submitOrder(ctx, quantity, latitude, longitude);
       reply.status(201);
       return result;
     });
@@ -53,7 +55,9 @@ export function orderRoutes(
         total: order.total,
         latitude: order.latitude,
         longitude: order.longitude,
+        status: order.status,
         createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString(),
         lines: order.lines.map((line) => ({
           productId: line.productId,
           productName: line.product.name,

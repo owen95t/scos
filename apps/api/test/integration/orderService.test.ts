@@ -4,6 +4,8 @@ import {
   createOrderService,
   InsufficientStockError,
 } from "../../src/services/orderService.js";
+import type { ServiceContext } from "../../src/services/orderService.js";
+import { createAuditService } from "../../src/services/auditService.js";
 import type { Logger } from "../../src/types/logger.js";
 
 const noop = () => {};
@@ -11,6 +13,8 @@ const testLogger = {
   info: noop, debug: noop, warn: noop, error: noop, fatal: noop, trace: noop, silent: noop,
   child: () => testLogger, level: "silent",
 } as unknown as Logger;
+
+const testCtx: ServiceContext = { log: testLogger, requestId: "test-req-001" };
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -20,7 +24,8 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
 
   beforeAll(async () => {
     prisma = new PrismaClient();
-    orderService = createOrderService(prisma);
+    const auditService = createAuditService(prisma);
+    orderService = createOrderService(prisma, auditService);
   });
 
   afterAll(async () => {
@@ -28,6 +33,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   });
 
   beforeEach(async () => {
+    await prisma.$executeRawUnsafe(`DELETE FROM audit_log`);
     await prisma.orderFulfillment.deleteMany();
     await prisma.orderLine.deleteMany();
     await prisma.order.deleteMany();
@@ -46,7 +52,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   });
 
   it("verifyOrder returns quote without side effects", async () => {
-    const quote = await orderService.verifyOrder(testLogger, 10, 34.0, -118.0);
+    const quote = await orderService.verifyOrder(testCtx, 10, 34.0, -118.0);
     expect(quote.valid).toBe(true);
     expect(quote.subtotal).toBe(1500);
     expect(quote.fulfillmentPlan.length).toBeGreaterThan(0);
@@ -58,7 +64,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   });
 
   it("submitOrder persists order and decrements stock", async () => {
-    const result = await orderService.submitOrder(testLogger, 10, 34.0, -118.0);
+    const result = await orderService.submitOrder(testCtx, 10, 34.0, -118.0);
     expect(result.orderNumber).toMatch(/^ORD-/);
     expect(result.quote.valid).toBe(true);
 
@@ -78,7 +84,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
 
     const promises = Array.from({ length: 10 }, () =>
       orderService
-        .submitOrder(testLogger, 10, 34.0, -118.0)
+        .submitOrder(testCtx, 10, 34.0, -118.0)
         .then(() => "success" as const)
         .catch((e) => {
           if (
@@ -110,7 +116,37 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
     );
 
     await expect(
-      orderService.submitOrder(testLogger, 1, 34.0, -118.0)
+      orderService.submitOrder(testCtx, 1, 34.0, -118.0)
     ).rejects.toThrow(InsufficientStockError);
+  });
+
+  it("submitOrder creates audit log entries", async () => {
+    const ctx: ServiceContext = { log: testLogger, requestId: "audit-test-req" };
+    await orderService.submitOrder(ctx, 10, 34.0, -118.0);
+
+    const entries = await prisma.$queryRawUnsafe<
+      Array<{ action: string; entity_type: string; entity_id: string; request_id: string; data: unknown }>
+    >(`SELECT action, entity_type, entity_id, request_id, data FROM audit_log ORDER BY id ASC`);
+
+    const stockEntries = entries.filter((e) => e.action === "STOCK_DECREMENTED");
+    const orderEntries = entries.filter((e) => e.action === "ORDER_CREATED");
+
+    expect(stockEntries.length).toBeGreaterThan(0);
+    expect(orderEntries).toHaveLength(1);
+
+    for (const entry of entries) {
+      expect(entry.request_id).toBe("audit-test-req");
+    }
+
+    const stockEntry = stockEntries[0];
+    const stockData = stockEntry.data as Record<string, unknown>;
+    expect(stockData.quantityBefore).toBeTypeOf("number");
+    expect(stockData.quantityAfter).toBeTypeOf("number");
+    expect((stockData.quantityBefore as number) - (stockData.quantityAfter as number)).toBe(stockData.decremented);
+
+    const orderData = orderEntries[0].data as Record<string, unknown>;
+    expect(orderData.quantity).toBe(10);
+    expect(orderData.total).toBeTypeOf("number");
+    expect(orderEntries[0].entity_id).toMatch(/^ORD-/);
   });
 });

@@ -22,6 +22,7 @@ export function errorHandler(
   }
 
   if (err instanceof InsufficientStockError) {
+    request.log.warn({ error: err.message, quantity: err.quantity }, "order rejected: insufficient stock");
     return reply.status(409).send({
       error: "INSUFFICIENT_STOCK" as const,
       reason: err.message,
@@ -29,6 +30,7 @@ export function errorHandler(
   }
 
   if (err instanceof InvalidOrderError) {
+    request.log.warn({ error: err.message, quantity: err.quantity }, "order rejected: invalid order");
     return reply.status(409).send({
       error: "INVALID_ORDER" as const,
       reason: err.message,

@@ -6,18 +6,32 @@ import { calculateOrder } from "../domain/orderCalculator.js";
 import { calculatePricing } from "../domain/pricing.js";
 import type { WarehouseWithStock } from "../domain/types.js";
 import type { Logger } from "../types/logger.js";
+import type { AuditService } from "./auditService.js";
+
+export interface ServiceContext {
+  log: Logger;
+  requestId: string;
+}
 
 export class InsufficientStockError extends Error {
-  constructor(message: string) {
+  readonly requestId?: string;
+  readonly quantity?: number;
+  constructor(message: string, context?: { requestId?: string; quantity?: number }) {
     super(message);
     this.name = "InsufficientStockError";
+    this.requestId = context?.requestId;
+    this.quantity = context?.quantity;
   }
 }
 
 export class InvalidOrderError extends Error {
-  constructor(message: string) {
+  readonly requestId?: string;
+  readonly quantity?: number;
+  constructor(message: string, context?: { requestId?: string; quantity?: number }) {
     super(message);
     this.name = "InvalidOrderError";
+    this.requestId = context?.requestId;
+    this.quantity = context?.quantity;
   }
 }
 
@@ -42,7 +56,7 @@ function toQuote(
   };
 }
 
-export function createOrderService(prisma: PrismaClient) {
+export function createOrderService(prisma: PrismaClient, auditService: AuditService) {
   async function getWarehousesWithStock(): Promise<WarehouseWithStock[]> {
     const warehouses = await prisma.warehouse.findMany({
       include: { stock: true },
@@ -59,16 +73,16 @@ export function createOrderService(prisma: PrismaClient) {
 
   return {
     async verifyOrder(
-      log: Logger,
+      ctx: ServiceContext,
       quantity: number,
       latitude: number,
       longitude: number
     ): Promise<OrderQuote> {
-      log.info({ quantity, latitude, longitude }, "verifying order");
+      ctx.log.info({ quantity, latitude, longitude }, "verifying order");
       const warehouses = await getWarehousesWithStock();
-      log.debug({ warehouseCount: warehouses.length, totalStock: warehouses.reduce((s, w) => s + w.stock, 0) }, "warehouses loaded");
+      ctx.log.debug({ warehouseCount: warehouses.length, totalStock: warehouses.reduce((s, w) => s + w.stock, 0) }, "warehouses loaded");
       const calc = calculateOrder(warehouses, quantity, { latitude, longitude });
-      log.info({
+      ctx.log.info({
         valid: calc.valid,
         allocationLegs: calc.allocation.legs.length,
         shippingCost: calc.shippingCost,
@@ -79,12 +93,12 @@ export function createOrderService(prisma: PrismaClient) {
     },
 
     async submitOrder(
-      log: Logger,
+      ctx: ServiceContext,
       quantity: number,
       latitude: number,
       longitude: number
     ): Promise<{ orderNumber: string; quote: OrderQuote }> {
-      log.info({ quantity, latitude, longitude }, "submitting order");
+      ctx.log.info({ quantity, latitude, longitude }, "submitting order");
       return prisma.$transaction(async (tx) => {
         const rawStocks = await tx.$queryRawUnsafe<
           Array<{
@@ -112,7 +126,7 @@ export function createOrderService(prisma: PrismaClient) {
           stock: r.quantity,
         }));
 
-        log.debug({ warehouseCount: warehouses.length }, "stock locked for allocation");
+        ctx.log.debug({ warehouseCount: warehouses.length }, "stock locked for allocation");
 
         const calc = calculateOrder(warehouses, quantity, {
           latitude,
@@ -121,14 +135,14 @@ export function createOrderService(prisma: PrismaClient) {
 
         if (!calc.valid) {
           if (!calc.allocation.fulfilled) {
-            log.warn({ requested: quantity, available: calc.allocation.fulfilledQuantity }, "insufficient stock");
-            throw new InsufficientStockError(calc.reason!);
+            ctx.log.warn({ requested: quantity, available: calc.allocation.fulfilledQuantity }, "insufficient stock");
+            throw new InsufficientStockError(calc.reason!, { requestId: ctx.requestId, quantity });
           }
-          log.warn({ reason: calc.reason }, "invalid order");
-          throw new InvalidOrderError(calc.reason!);
+          ctx.log.warn({ reason: calc.reason }, "invalid order");
+          throw new InvalidOrderError(calc.reason!, { requestId: ctx.requestId, quantity });
         }
 
-        log.info({
+        ctx.log.info({
           legs: calc.allocation.legs.map(l => ({
             warehouseId: l.warehouse.id,
             qty: l.quantity,
@@ -138,7 +152,7 @@ export function createOrderService(prisma: PrismaClient) {
 
         for (const leg of calc.allocation.legs) {
           await tx.$executeRawUnsafe(
-            `UPDATE warehouse_stock SET quantity = quantity - $1
+            `UPDATE warehouse_stock SET quantity = quantity - $1, updated_at = NOW()
              WHERE warehouse_id = $2 AND product_id = 1`,
             leg.quantity,
             leg.warehouse.id
@@ -179,7 +193,43 @@ export function createOrderService(prisma: PrismaClient) {
           },
         });
 
-        log.info({ orderNumber: order.orderNumber, total: calc.total }, "order created");
+        await auditService.logMany(
+          [
+            ...calc.allocation.legs.map((leg) => ({
+              action: "STOCK_DECREMENTED" as const,
+              entityType: "warehouse_stock",
+              entityId: `${leg.warehouse.id}:1`,
+              data: {
+                warehouseId: leg.warehouse.id,
+                warehouseName: leg.warehouse.name,
+                quantityBefore: leg.warehouse.stock,
+                quantityAfter: leg.warehouse.stock - leg.quantity,
+                decremented: leg.quantity,
+                orderNumber,
+              },
+            })),
+            {
+              action: "ORDER_CREATED" as const,
+              entityType: "order",
+              entityId: orderNumber,
+              data: {
+                orderId: order.id,
+                quantity,
+                latitude,
+                longitude,
+                subtotal: calc.pricing.subtotal,
+                discountAmount: calc.pricing.discountAmount,
+                shippingCost: calc.shippingCost,
+                total: calc.total,
+                legs: calc.allocation.legs.length,
+              },
+            },
+          ],
+          ctx.requestId,
+          tx
+        );
+
+        ctx.log.info({ orderNumber: order.orderNumber, total: calc.total }, "order created");
 
         return {
           orderNumber: order.orderNumber,

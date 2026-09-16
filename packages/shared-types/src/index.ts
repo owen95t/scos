@@ -61,7 +61,9 @@ export interface OrderResponse {
   total: number;
   latitude: number;
   longitude: number;
+  status: string;
   createdAt: string;
+  updatedAt: string;
   lines: OrderLineResponse[];
 }
 
