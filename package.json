@@ -1,0 +1,21 @@
+{
+  "name": "scos-order-management",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:api": "pnpm --filter @scos/api test",
+    "test:web": "pnpm --filter @scos/web test",
+    "test:integration": "./scripts/test-integration.sh",
+    "db:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "db:down": "docker compose -f docker-compose.test.yml down",
+    "db:migrate": "cd apps/api && DATABASE_URL=postgresql://scos_test:scos_test@localhost:5433/scos_test npx prisma migrate deploy",
+    "db:seed": "cd apps/api && DATABASE_URL=postgresql://scos_test:scos_test@localhost:5433/scos_test npx prisma db seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.4"
+}
