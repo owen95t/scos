@@ -14,6 +14,7 @@ export function errorHandler(
     const reason = err.validation
       .map((v) => `${v.instancePath.replace(/^\//, "") || v.params?.issue?.path?.join(".") || "field"}: ${v.message}`)
       .join("; ");
+    request.log.debug({ reason }, "validation error");
     return reply.status(400).send({
       error: "VALIDATION_ERROR" as const,
       reason,
@@ -34,7 +35,7 @@ export function errorHandler(
     });
   }
 
-  request.log.error(err);
+  request.log.error({ err }, "unhandled error");
   return reply.status(500).send({
     error: "INTERNAL_ERROR",
     reason: "An unexpected error occurred",

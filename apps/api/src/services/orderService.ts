@@ -5,6 +5,7 @@ import { haversineDistance } from "../domain/distance.js";
 import { calculateOrder } from "../domain/orderCalculator.js";
 import { calculatePricing } from "../domain/pricing.js";
 import type { WarehouseWithStock } from "../domain/types.js";
+import type { Logger } from "../types/logger.js";
 
 export class InsufficientStockError extends Error {
   constructor(message: string) {
@@ -58,20 +59,32 @@ export function createOrderService(prisma: PrismaClient) {
 
   return {
     async verifyOrder(
+      log: Logger,
       quantity: number,
       latitude: number,
       longitude: number
     ): Promise<OrderQuote> {
+      log.info({ quantity, latitude, longitude }, "verifying order");
       const warehouses = await getWarehousesWithStock();
+      log.debug({ warehouseCount: warehouses.length, totalStock: warehouses.reduce((s, w) => s + w.stock, 0) }, "warehouses loaded");
       const calc = calculateOrder(warehouses, quantity, { latitude, longitude });
+      log.info({
+        valid: calc.valid,
+        allocationLegs: calc.allocation.legs.length,
+        shippingCost: calc.shippingCost,
+        total: calc.total,
+        ...(calc.reason && { reason: calc.reason }),
+      }, "order verified");
       return toQuote(calc);
     },
 
     async submitOrder(
+      log: Logger,
       quantity: number,
       latitude: number,
       longitude: number
     ): Promise<{ orderNumber: string; quote: OrderQuote }> {
+      log.info({ quantity, latitude, longitude }, "submitting order");
       return prisma.$transaction(async (tx) => {
         const rawStocks = await tx.$queryRawUnsafe<
           Array<{
@@ -99,6 +112,8 @@ export function createOrderService(prisma: PrismaClient) {
           stock: r.quantity,
         }));
 
+        log.debug({ warehouseCount: warehouses.length }, "stock locked for allocation");
+
         const calc = calculateOrder(warehouses, quantity, {
           latitude,
           longitude,
@@ -106,10 +121,20 @@ export function createOrderService(prisma: PrismaClient) {
 
         if (!calc.valid) {
           if (!calc.allocation.fulfilled) {
+            log.warn({ requested: quantity, available: calc.allocation.fulfilledQuantity }, "insufficient stock");
             throw new InsufficientStockError(calc.reason!);
           }
+          log.warn({ reason: calc.reason }, "invalid order");
           throw new InvalidOrderError(calc.reason!);
         }
+
+        log.info({
+          legs: calc.allocation.legs.map(l => ({
+            warehouseId: l.warehouse.id,
+            qty: l.quantity,
+            distanceKm: Math.round(l.distanceKm),
+          })),
+        }, "allocation decided");
 
         for (const leg of calc.allocation.legs) {
           await tx.$executeRawUnsafe(
@@ -153,6 +178,8 @@ export function createOrderService(prisma: PrismaClient) {
             },
           },
         });
+
+        log.info({ orderNumber: order.orderNumber, total: calc.total }, "order created");
 
         return {
           orderNumber: order.orderNumber,

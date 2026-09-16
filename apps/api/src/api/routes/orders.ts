@@ -19,14 +19,14 @@ export function orderRoutes(
       schema: { body: verifyOrderSchema },
     }, async (request) => {
       const { quantity, latitude, longitude } = request.body;
-      return orderService.verifyOrder(quantity, latitude, longitude);
+      return orderService.verifyOrder(request.log, quantity, latitude, longitude);
     });
 
     app.post("/orders", {
       schema: { body: submitOrderSchema },
     }, async (request, reply) => {
       const { quantity, latitude, longitude } = request.body;
-      const result = await orderService.submitOrder(quantity, latitude, longitude);
+      const result = await orderService.submitOrder(request.log, quantity, latitude, longitude);
       reply.status(201);
       return result;
     });

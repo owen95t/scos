@@ -78,6 +78,33 @@ Swagger UI is served at `/docs` when the API is running.
 - **Zod** — one schema definition drives both runtime validation and generated OpenAPI types, avoiding drift between API docs and validation.
 - **Vitest** — fast, native ESM/TS support, shared config style with Vite.
 
+## Logging
+
+Structured logging via Pino with per-request correlation IDs. Every log line in a request's lifecycle carries the same `reqId` — grep it for a full trace.
+
+```bash
+# Configure via environment variables
+LOG_LEVEL=debug    # debug (default in dev), info (default in prod), warn, error
+NODE_ENV=development  # "production" outputs JSON, anything else uses pino-pretty
+```
+
+**Dev output** (colorized, human-readable):
+```
+22:14:33.120 INFO  (req-a3f8b2c1): submitting order
+    quantity: 50, latitude: 34, longitude: -118
+22:14:33.136 INFO  (req-a3f8b2c1): allocation decided
+    legs: [{"warehouseId":1,"qty":50,"distanceKm":42}]
+22:14:33.142 INFO  (req-a3f8b2c1): order created
+    orderNumber: "ORD-000012", total: 6853.5
+```
+
+**Production output** (newline-delimited JSON, for log aggregators):
+```json
+{"level":30,"time":1694812473120,"reqId":"req-a3f8b2c1","msg":"submitting order","quantity":50}
+```
+
+Logged events: order verify/submit, allocation decisions, stock warnings, validation errors, unhandled errors.
+
 ## Production Deploy Notes
 
 This project is scoped to local development. For a production deployment:

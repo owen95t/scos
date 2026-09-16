@@ -10,11 +10,12 @@ import { createContainer } from "./container.js";
 import { orderRoutes } from "./api/routes/orders.js";
 import { warehouseRoutes } from "./api/routes/warehouses.js";
 import { errorHandler } from "./api/middleware/errorHandler.js";
+import { buildLoggerConfig } from "./config/logger.js";
 
 export async function createApp(container?: ReturnType<typeof createContainer>): Promise<{ app: FastifyInstance; container: ReturnType<typeof createContainer> }> {
   const c = container ?? createContainer();
 
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: buildLoggerConfig() });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);

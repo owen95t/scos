@@ -4,6 +4,13 @@ import {
   createOrderService,
   InsufficientStockError,
 } from "../../src/services/orderService.js";
+import type { Logger } from "../../src/types/logger.js";
+
+const noop = () => {};
+const testLogger = {
+  info: noop, debug: noop, warn: noop, error: noop, fatal: noop, trace: noop, silent: noop,
+  child: () => testLogger, level: "silent",
+} as unknown as Logger;
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -39,7 +46,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   });
 
   it("verifyOrder returns quote without side effects", async () => {
-    const quote = await orderService.verifyOrder(10, 34.0, -118.0);
+    const quote = await orderService.verifyOrder(testLogger, 10, 34.0, -118.0);
     expect(quote.valid).toBe(true);
     expect(quote.subtotal).toBe(1500);
     expect(quote.fulfillmentPlan.length).toBeGreaterThan(0);
@@ -51,7 +58,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   });
 
   it("submitOrder persists order and decrements stock", async () => {
-    const result = await orderService.submitOrder(10, 34.0, -118.0);
+    const result = await orderService.submitOrder(testLogger, 10, 34.0, -118.0);
     expect(result.orderNumber).toMatch(/^ORD-/);
     expect(result.quote.valid).toBe(true);
 
@@ -71,7 +78,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
 
     const promises = Array.from({ length: 10 }, () =>
       orderService
-        .submitOrder(10, 34.0, -118.0)
+        .submitOrder(testLogger, 10, 34.0, -118.0)
         .then(() => "success" as const)
         .catch((e) => {
           if (
@@ -103,7 +110,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
     );
 
     await expect(
-      orderService.submitOrder(1, 34.0, -118.0)
+      orderService.submitOrder(testLogger, 1, 34.0, -118.0)
     ).rejects.toThrow(InsufficientStockError);
   });
 });
