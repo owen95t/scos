@@ -105,6 +105,13 @@ NODE_ENV=development  # "production" outputs JSON, anything else uses pino-prett
 
 Logged events: order verify/submit, allocation decisions, stock warnings, validation errors, unhandled errors.
 
+## Secret Scanning
+
+[gitleaks](https://github.com/gitleaks/gitleaks) scan for hardcoded secrets at two points:
+
+- **Pre-commit** — `.husky/pre-commit` run `gitleaks git --staged` on every local commit, block it if a secret is staged. Needs the `gitleaks` binary on PATH (`brew install gitleaks`); hook install automatically via `pnpm install` (husky `prepare` script).
+- **CI** — `gitleaks` job in `.github/workflows/ci.yml` scan full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2`. Catches anything committed with `--no-verify`.
+
 ## Production Deploy Notes
 
 This project is scoped to local development. For a production deployment:
