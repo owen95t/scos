@@ -9,7 +9,7 @@
 
 Single-package backend (pnpm):
 - `src/` — Fastify API server
-- `src/shared-types/` — shared TypeScript response types (`#shared-types`)
+- `src/types/` — shared TypeScript types (API response shapes in `api.ts`)
 
 ## Commands
 

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { OrderQuote } from "#shared-types";
+import type { OrderQuote } from "../types/api.ts";
 import { InsufficientStockError, InvalidOrderError } from "../domain/errors.ts";
 import { calculateOrder } from "../domain/orderCalculator.ts";
 import { PRODUCT_ID } from "../domain/product.ts";

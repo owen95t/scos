@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { OrderResponse } from "#shared-types";
+import type { OrderResponse } from "../types/api.ts";
 import type { OrderCalculation } from "../domain/types.ts";
 
 export interface NewOrder {

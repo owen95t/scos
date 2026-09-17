@@ -6,7 +6,7 @@ SCOS Order Management is a single-package backend API. Single product (SCOS Stat
 
 ```
 src/                Fastify + Prisma + Postgres — order verification/submission API
-src/shared-types/   API response types (e.g. OrderQuote), imported as `#shared-types`
+src/types/          API response types (e.g. OrderQuote) and shared type definitions
 ```
 
 ## API layering (`src`)
@@ -27,7 +27,7 @@ Dependency direction: routes → services → domain (pure) + repositories → P
 Rules:
 - Only repositories (and `auditService`) contain SQL or Prisma queries.
 - The service owns the transaction (`prisma.$transaction`) and passes `tx` to repository methods that must join it.
-- Repositories return domain types (`WarehouseWithStock`) or `#shared-types` response shapes, so routes never see Prisma models.
+- Repositories return domain types (`WarehouseWithStock`) or API response shapes from `src/types/api.ts`, so routes never see Prisma models.
 - Routes handle HTTP concerns only: validation, status codes, error bodies.
 
 ### Why not full hexagonal / clean architecture
