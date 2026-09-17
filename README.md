@@ -63,6 +63,21 @@ test/               — Unit, API and integration tests
 openapi.yaml        — API specification
 ```
 
+## Architecture
+
+The request flow is:
+
+```text
+API → Service → Domain → Repository → Database
+```
+
+- **API** — Handles HTTP requests, validation, status codes, and responses.
+- **Service** — Coordinates use cases, transactions, inventory updates, and order creation.
+- **Domain** — Contains business rules such as pricing, discounts, shipping, allocation, and order validity.
+- **Repository** — Reads and writes data through Prisma and PostgreSQL.
+
+For more detail, see [ARCHITECTURE.MD](ARCHITECTURE.MD).
+
 Frontend lives in a separate repo: `scos-fe/`
 
 ## API Documentation
