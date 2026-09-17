@@ -91,4 +91,4 @@ jobs:
     needs: [build, gitleaks]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - run: echo "Deploy step placeholder — configure for Fly.io/Render"
+      - run: echo "Deploy step placeholder"
