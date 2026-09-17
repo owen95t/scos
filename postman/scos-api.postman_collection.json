@@ -2,8 +2,11 @@
   "info": {
     "_postman_id": "c8b4a1d2-5e6f-4a7b-9c8d-1e2f3a4b5c6d",
     "name": "SCOS Order Management API",
-    "description": "Requests for the SCOS Order Management API. Start the API locally with `pnpm dev` and run the order requests in sequence so the submitted order number is available to the lookup request. No authentication is configured by the API.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": {
+      "content": "API for managing SCOS Station P1 Pro orders with multi-warehouse fulfillment",
+      "type": "text/plain"
+    }
   },
   "variable": [
     {
@@ -37,89 +40,47 @@
       "name": "Orders",
       "item": [
         {
-          "name": "Verify order quote",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"quantity\": {{quantity}},\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/orders/verify",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "orders",
-                "verify"
-              ]
-            },
-            "description": "Calculate pricing, discount, shipping, and the fulfillment plan without creating an order."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "const body = pm.response.json();",
-                  "pm.test('Quote contains a fulfillment plan', function () {",
-                  "    pm.expect(body).to.have.property('valid');",
-                  "    pm.expect(body.fulfillmentPlan).to.be.an('array');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "response": []
-        },
-        {
           "name": "Submit order",
           "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"quantity\": {{quantity}},\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+            "name": "Submit an order",
+            "description": {
+              "content": "Persist an order with transactional stock decrement",
+              "type": "text/plain"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/orders",
-              "host": [
-                "{{baseUrl}}"
-              ],
               "path": [
                 "api",
                 "orders"
-              ]
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [],
+              "raw": "{{baseUrl}}/api/orders"
             },
-            "description": "Persist an order and decrement the required warehouse stock transactionally. The test script stores the returned order number in the collection variable `orderNumber`."
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": {{quantity}},\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
+          "response": [],
           "event": [
             {
               "listen": "test",
@@ -140,27 +101,97 @@
                 ]
               }
             }
-          ],
-          "response": []
+          ]
+        },
+        {
+          "name": "Verify order quote",
+          "request": {
+            "name": "Verify an order quote",
+            "description": {
+              "content": "Calculate pricing, discount, shipping, and fulfillment plan without persisting",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "api",
+                "orders",
+                "verify"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [],
+              "raw": "{{baseUrl}}/api/orders/verify"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": {{quantity}},\n  \"latitude\": {{latitude}},\n  \"longitude\": {{longitude}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Quote contains a fulfillment plan', function () {",
+                  "    pm.expect(body).to.have.property('valid');",
+                  "    pm.expect(body.fulfillmentPlan).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get order details",
           "request": {
-            "method": "GET",
-            "header": [],
+            "name": "Get order details",
             "url": {
-              "raw": "{{baseUrl}}/api/orders/{{orderNumber}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
               "path": [
                 "api",
                 "orders",
                 "{{orderNumber}}"
-              ]
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [],
+              "raw": "{{baseUrl}}/api/orders/{{orderNumber}}"
             },
-            "description": "Get an order and its fulfillment breakdown. Run `Submit order` first, or set the collection variable `orderNumber` manually."
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
           },
+          "response": [],
           "event": [
             {
               "listen": "test",
@@ -179,8 +210,7 @@
                 ]
               }
             }
-          ],
-          "response": []
+          ]
         }
       ]
     },
@@ -190,20 +220,28 @@
         {
           "name": "List warehouses and stock",
           "request": {
-            "method": "GET",
-            "header": [],
+            "name": "List warehouses with current stock",
             "url": {
-              "raw": "{{baseUrl}}/api/warehouses",
-              "host": [
-                "{{baseUrl}}"
-              ],
               "path": [
                 "api",
                 "warehouses"
-              ]
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [],
+              "raw": "{{baseUrl}}/api/warehouses"
             },
-            "description": "List all warehouses with their current product stock."
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET"
           },
+          "response": [],
           "event": [
             {
               "listen": "test",
@@ -222,8 +260,7 @@
                 ]
               }
             }
-          ],
-          "response": []
+          ]
         }
       ]
     }
