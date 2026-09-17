@@ -1,15 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { InsufficientStockError } from "../../src/domain/errors.js";
-import { PRODUCT_ID } from "../../src/domain/product.js";
-import { createOrderRepository } from "../../src/repositories/orderRepository.js";
-import { createWarehouseRepository } from "../../src/repositories/warehouseRepository.js";
-import { createOrderService } from "../../src/services/orderService.js";
-import type { ServiceContext } from "../../src/services/orderService.js";
-import { createAuditService } from "../../src/services/auditService.js";
-import type { AuditService } from "../../src/services/auditService.js";
-import type { Logger } from "../../src/types/logger.js";
-import { resetDb, warehouseIdByName } from "../support/db.js";
+import { InsufficientStockError } from "../../src/domain/errors.ts";
+import { PRODUCT_ID } from "../../src/domain/product.ts";
+import { createOrderRepository } from "../../src/repositories/orderRepository.ts";
+import { createWarehouseRepository } from "../../src/repositories/warehouseRepository.ts";
+import { createOrderService } from "../../src/services/orderService.ts";
+import type { ServiceContext } from "../../src/services/orderService.ts";
+import { createAuditService } from "../../src/services/auditService.ts";
+import type { AuditService } from "../../src/services/auditService.ts";
+import type { Logger } from "../../src/types/logger.ts";
+import { resetDb, warehouseIdByName } from "../support/db.ts";
 
 const noop = () => {};
 const testLogger = {

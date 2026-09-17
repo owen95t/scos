@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   allocateOrder,
   calculateShippingCost,
-} from "../../../src/domain/allocation.js";
-import { totalStock, warehouses } from "../../fixtures/warehouses.js";
+} from "../../../src/domain/allocation.ts";
+import { totalStock, warehouses } from "../../fixtures/warehouses.ts";
 
 describe("calculateShippingCost", () => {
   it("$0.01/kg/km × 0.365kg × 100 units × 1000km = $365", () => {

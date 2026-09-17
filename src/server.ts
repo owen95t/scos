@@ -1,5 +1,5 @@
-import { createApp } from "./app.js";
-import { getEnv } from "./config/env.js";
+import { createApp } from "./app.ts";
+import { getEnv } from "./config/env.ts";
 
 let env;
 try {

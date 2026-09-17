@@ -1,12 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
 import type { OrderQuote } from "#shared-types";
-import { InsufficientStockError, InvalidOrderError } from "../domain/errors.js";
-import { calculateOrder } from "../domain/orderCalculator.js";
-import { PRODUCT_ID } from "../domain/product.js";
-import type { OrderRepository } from "../repositories/orderRepository.js";
-import type { WarehouseRepository } from "../repositories/warehouseRepository.js";
-import type { Logger } from "../types/logger.js";
-import type { AuditService } from "./auditService.js";
+import { InsufficientStockError, InvalidOrderError } from "../domain/errors.ts";
+import { calculateOrder } from "../domain/orderCalculator.ts";
+import { PRODUCT_ID } from "../domain/product.ts";
+import type { OrderRepository } from "../repositories/orderRepository.ts";
+import type { WarehouseRepository } from "../repositories/warehouseRepository.ts";
+import type { Logger } from "../types/logger.ts";
+import type { AuditService } from "./auditService.ts";
 
 export interface ServiceContext {
   log: Logger;

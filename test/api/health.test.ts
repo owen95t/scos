@@ -1,10 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../../src/app.js";
-import { createContainer } from "../../src/container.js";
-import { healthRoutes } from "../../src/api/routes/health.js";
-import { genReqId } from "../../src/config/logger.js";
+import { createApp } from "../../src/app.ts";
+import { createContainer } from "../../src/container.ts";
+import { healthRoutes } from "../../src/api/routes/health.ts";
+import { genReqId } from "../../src/config/logger.ts";
 
 describe("Health API", () => {
   let app: FastifyInstance;

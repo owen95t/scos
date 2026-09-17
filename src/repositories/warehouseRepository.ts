@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { WarehouseResponse } from "#shared-types";
-import type { WarehouseWithStock } from "../domain/types.js";
+import type { WarehouseWithStock } from "../domain/types.ts";
 
 export function createWarehouseRepository(prisma: PrismaClient) {
   return {

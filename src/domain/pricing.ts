@@ -1,4 +1,4 @@
-import type { PricingResult } from "./types.js";
+import type { PricingResult } from "./types.ts";
 
 const UNIT_PRICE = 150;
 

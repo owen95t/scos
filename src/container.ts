@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { createOrderRepository } from "./repositories/orderRepository.js";
-import { createWarehouseRepository } from "./repositories/warehouseRepository.js";
-import { createAuditService } from "./services/auditService.js";
-import { createOrderService } from "./services/orderService.js";
+import { createOrderRepository } from "./repositories/orderRepository.ts";
+import { createWarehouseRepository } from "./repositories/warehouseRepository.ts";
+import { createAuditService } from "./services/auditService.ts";
+import { createOrderService } from "./services/orderService.ts";
 
 export function createContainer() {
   const prisma = new PrismaClient();

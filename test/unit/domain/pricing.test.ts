@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculatePricing,
   getDiscountPercent,
-} from "../../../src/domain/pricing.js";
+} from "../../../src/domain/pricing.ts";
 
 describe("getDiscountPercent", () => {
   const cases: [number, number][] = [

@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { calculateShippingCost } from "../../../src/domain/allocation.js";
-import { haversineDistance } from "../../../src/domain/distance.js";
-import { calculateOrder } from "../../../src/domain/orderCalculator.js";
-import type { WarehouseWithStock } from "../../../src/domain/types.js";
-import { totalStock, warehouses } from "../../fixtures/warehouses.js";
+import { calculateShippingCost } from "../../../src/domain/allocation.ts";
+import { haversineDistance } from "../../../src/domain/distance.ts";
+import { calculateOrder } from "../../../src/domain/orderCalculator.ts";
+import type { WarehouseWithStock } from "../../../src/domain/types.ts";
+import { totalStock, warehouses } from "../../fixtures/warehouses.ts";
 
 // Lets a test pin the distance; otherwise the real haversine is used.
 const distance = vi.hoisted(() => ({ fixedKm: undefined as number | undefined }));
 
-vi.mock("../../../src/domain/distance.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../src/domain/distance.js")>();
+vi.mock("../../../src/domain/distance.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../src/domain/distance.ts")>();
   return {
     haversineDistance: (...args: Parameters<typeof actual.haversineDistance>) =>
       distance.fixedKm ?? actual.haversineDistance(...args),

@@ -1,10 +1,10 @@
-import { haversineDistance } from "./distance.js";
+import { haversineDistance } from "./distance.ts";
 import type {
   AllocationLeg,
   AllocationResult,
   Destination,
   WarehouseWithStock,
-} from "./types.js";
+} from "./types.ts";
 
 const SHIPPING_RATE_PER_KG_PER_KM = 0.01;
 const PRODUCT_WEIGHT_KG = 0.365;

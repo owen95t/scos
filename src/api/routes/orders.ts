@@ -1,12 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import type { OrderService } from "../../services/orderService.js";
-import type { OrderRepository } from "../../repositories/orderRepository.js";
+import type { OrderService } from "../../services/orderService.ts";
+import type { OrderRepository } from "../../repositories/orderRepository.ts";
 import {
   orderNumberParamSchema,
   submitOrderSchema,
   verifyOrderSchema,
-} from "../schemas/orderSchemas.js";
+} from "../schemas/orderSchemas.ts";
 
 export function orderRoutes(
   orderService: OrderService,

@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
-import { WAREHOUSES } from "../../prisma/seedData.js";
-import { PRODUCT_ID } from "../../src/domain/product.js";
+import { WAREHOUSES } from "../../prisma/seedData.ts";
+import { PRODUCT_ID } from "../../src/domain/product.ts";
 
 // Clears order data and restores seeded stock levels.
 export async function resetDb(prisma: PrismaClient): Promise<void> {

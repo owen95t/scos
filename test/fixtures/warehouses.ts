@@ -1,5 +1,5 @@
-import { WAREHOUSES } from "../../prisma/seedData.js";
-import type { WarehouseWithStock } from "../../src/domain/types.js";
+import { WAREHOUSES } from "../../prisma/seedData.ts";
+import type { WarehouseWithStock } from "../../src/domain/types.ts";
 
 // Seeded warehouses in domain shape, ids in seed order.
 export const warehouses: WarehouseWithStock[] = WAREHOUSES.map((w, i) => ({

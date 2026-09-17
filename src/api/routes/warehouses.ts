@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import type { WarehouseRepository } from "../../repositories/warehouseRepository.js";
+import type { WarehouseRepository } from "../../repositories/warehouseRepository.ts";
 
 export function warehouseRoutes(
   warehouseRepository: WarehouseRepository

@@ -1,10 +1,10 @@
-import { allocateOrder } from "./allocation.js";
-import { calculatePricing } from "./pricing.js";
+import { allocateOrder } from "./allocation.ts";
+import { calculatePricing } from "./pricing.ts";
 import type {
   Destination,
   OrderCalculation,
   WarehouseWithStock,
-} from "./types.js";
+} from "./types.ts";
 
 const SHIPPING_COST_THRESHOLD = 0.15;
 

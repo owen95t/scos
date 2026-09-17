@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversineDistance } from "../../../src/domain/distance.js";
+import { haversineDistance } from "../../../src/domain/distance.ts";
 
 describe("haversineDistance", () => {
   it("returns 0 for same point", () => {

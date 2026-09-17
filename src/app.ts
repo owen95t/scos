@@ -6,12 +6,12 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
-import { createContainer } from "./container.js";
-import { orderRoutes } from "./api/routes/orders.js";
-import { warehouseRoutes } from "./api/routes/warehouses.js";
-import { errorHandler } from "./api/middleware/errorHandler.js";
-import { buildLoggerConfig, genReqId } from "./config/logger.js";
-import { healthRoutes } from "./api/routes/health.js";
+import { createContainer } from "./container.ts";
+import { orderRoutes } from "./api/routes/orders.ts";
+import { warehouseRoutes } from "./api/routes/warehouses.ts";
+import { errorHandler } from "./api/middleware/errorHandler.ts";
+import { buildLoggerConfig, genReqId } from "./config/logger.ts";
+import { healthRoutes } from "./api/routes/health.ts";
 
 export async function createApp(container?: ReturnType<typeof createContainer>): Promise<{ app: FastifyInstance; container: ReturnType<typeof createContainer> }> {
   const c = container ?? createContainer();

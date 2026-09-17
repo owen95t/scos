@@ -1,6 +1,6 @@
 import type { FastifyServerOptions } from "fastify";
 import { randomUUID } from "node:crypto";
-import { getEnv } from "./env.js";
+import { getEnv } from "./env.ts";
 
 // Top-level Fastify option; it has no effect inside the logger config.
 export const genReqId = () => `req-${randomUUID().slice(0, 8)}`;

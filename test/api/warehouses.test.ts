@@ -1,10 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { WAREHOUSES } from "../../prisma/seedData.js";
-import { createApp } from "../../src/app.js";
-import { createContainer } from "../../src/container.js";
-import { resetDb } from "../support/db.js";
+import { WAREHOUSES } from "../../prisma/seedData.ts";
+import { createApp } from "../../src/app.ts";
+import { createContainer } from "../../src/container.ts";
+import { resetDb } from "../support/db.ts";
 
 describe("Warehouses API", () => {
   let app: FastifyInstance;
