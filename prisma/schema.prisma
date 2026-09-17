@@ -87,20 +87,3 @@ model OrderFulfillment {
 
   @@map("order_fulfillments")
 }
-
-model AuditLog {
-  id         BigInt   @id @default(autoincrement())
-  timestamp  DateTime @default(now())
-  requestId  String?  @map("request_id")
-  actor      String?
-  action     String
-  entityType String   @map("entity_type")
-  entityId   String   @map("entity_id")
-  data       Json?
-
-  @@index([entityType, entityId])
-  @@index([requestId])
-  @@index([action])
-  @@index([timestamp])
-  @@map("audit_log")
-}

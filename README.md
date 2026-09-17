@@ -132,38 +132,7 @@ NODE_ENV=development  # "production" outputs JSON, anything else uses pino-prett
 
 Logged events: order verify/submit, allocation decisions, stock warnings, validation errors, unhandled errors.
 
-## Audit Trail
-
-Every state mutation writes durable records to the `audit_log` table, inside the same database transaction as the data change — if the transaction rolls back, the audit entry does too.
-
-### What's captured
-
-| Action | Entity | Data |
-|--------|--------|------|
-| `ORDER_CREATED` | `order` / `ORD-XXXXXX` | orderId, quantity, lat/lng, subtotal, discountAmount, shippingCost, total, leg count |
-| `STOCK_DECREMENTED` | `warehouse_stock` / `{warehouseId}:1` | warehouseId, warehouseName, quantityBefore, quantityAfter, decremented, orderNumber |
-
-Each entry carries `request_id` (matches log `reqId`) and `timestamp`. The `actor` column is nullable — ready for when authentication is added.
-
-### Querying
-
-```sql
--- Full trace for a specific order
-SELECT * FROM audit_log WHERE entity_id = 'ORD-000042' ORDER BY id;
-
--- All stock changes for a warehouse
-SELECT * FROM audit_log
-WHERE entity_type = 'warehouse_stock' AND entity_id LIKE '3:%'
-ORDER BY timestamp DESC;
-
--- Everything from a single request
-SELECT * FROM audit_log WHERE request_id = 'req-a3f8b2c1';
-
--- Recent order creations
-SELECT * FROM audit_log WHERE action = 'ORDER_CREATED' ORDER BY timestamp DESC LIMIT 20;
-```
-
-### Order Status
+## Order Status
 
 Orders have a `status` field (default: `confirmed`) and `updated_at` timestamp. Warehouse stock rows also track `updated_at`. These are returned in the `GET /api/orders/:orderNumber` response.
 
@@ -199,6 +168,7 @@ If this were a real project, I would:
 
 - Add authentication and authorization for sales representatives and warehouse users.
 - Add idempotency keys so retried requests cannot create duplicate orders.
+- Add an audit trail. I left it out to keep the scope close to the 4-hour brief. In production, every stock change and order creation would write an `audit_log` row in the same transaction as the change, so a rolled-back order leaves no audit entry. Each row would record the action, the entity, the before and after values, the request ID (matching the log `reqId`) and the authenticated user. This supports investigating stock discrepancies and disputed orders. If write volume grew, I would move to a transactional outbox or change data capture (CDC) feeding an append-only store.
 - Reduce lock contention: order submission currently locks all stock rows for the product, so submissions run one at a time. I would lock only the warehouses used by the order, or use conditional updates (`quantity >= n`) with a retry.
 - Add load tests that submit orders in parallel against multiple API instances, checking that stock never goes negative and order numbers stay unique.
 - Deploy multiple stateless API instances behind a load balancer, using PostgreSQL as the source of truth.

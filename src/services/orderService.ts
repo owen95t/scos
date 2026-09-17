@@ -6,7 +6,6 @@ import { PRODUCT_ID } from "../domain/product.ts";
 import type { OrderRepository } from "../repositories/orderRepository.ts";
 import type { WarehouseRepository } from "../repositories/warehouseRepository.ts";
 import type { Logger } from "../types/logger.ts";
-import type { AuditService } from "./auditService.ts";
 
 export interface ServiceContext {
   log: Logger;
@@ -18,7 +17,6 @@ export interface OrderServiceDeps {
   prisma: PrismaClient;
   warehouseRepository: WarehouseRepository;
   orderRepository: OrderRepository;
-  auditService: AuditService;
 }
 
 function toQuote(
@@ -46,7 +44,6 @@ export function createOrderService({
   prisma,
   warehouseRepository,
   orderRepository,
-  auditService,
 }: OrderServiceDeps) {
   return {
     async verifyOrder(
@@ -115,42 +112,6 @@ export function createOrderService({
           longitude,
           calc,
         });
-
-        await auditService.logMany(
-          [
-            ...calc.allocation.legs.map((leg) => ({
-              action: "STOCK_DECREMENTED" as const,
-              entityType: "warehouse_stock",
-              entityId: `${leg.warehouse.id}:${PRODUCT_ID}`,
-              data: {
-                warehouseId: leg.warehouse.id,
-                warehouseName: leg.warehouse.name,
-                quantityBefore: leg.warehouse.stock,
-                quantityAfter: leg.warehouse.stock - leg.quantity,
-                decremented: leg.quantity,
-                orderNumber,
-              },
-            })),
-            {
-              action: "ORDER_CREATED" as const,
-              entityType: "order",
-              entityId: orderNumber,
-              data: {
-                orderId: order.id,
-                quantity,
-                latitude,
-                longitude,
-                subtotal: calc.pricing.subtotal,
-                discountAmount: calc.pricing.discountAmount,
-                shippingCost: calc.shippingCost,
-                total: calc.total,
-                legs: calc.allocation.legs.length,
-              },
-            },
-          ],
-          ctx.requestId,
-          tx
-        );
 
         ctx.log.info({ orderNumber: order.orderNumber, total: calc.total }, "order created");
 

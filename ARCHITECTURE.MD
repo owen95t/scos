@@ -14,8 +14,7 @@ src/types/          API response types (e.g. OrderQuote) and shared type definit
 ```
 api/routes          HTTP handlers (orders.ts, warehouses.ts), Zod-validated (orderSchemas.ts)
 api/middleware      errorHandler.ts — maps domain errors to HTTP status
-services            orderService.ts — orchestrates: lock stock → calculate → persist → audit
-                    auditService.ts — writes audit_log rows (tx-aware)
+services            orderService.ts — orchestrates: lock stock → calculate → persist
 domain              allocation.ts, pricing.ts, orderCalculator.ts, distance.ts, types.ts,
                     errors.ts, product.ts — pure, no I/O, fully unit-testable
 repositories        orderRepository.ts, warehouseRepository.ts — all Prisma queries and raw SQL
@@ -25,7 +24,7 @@ container.ts        Manual DI: wires PrismaClient into repositories/services
 Dependency direction: routes → services → domain (pure) + repositories → Prisma → Postgres.
 
 Rules:
-- Only repositories (and `auditService`) contain SQL or Prisma queries.
+- Only repositories contain SQL or Prisma queries.
 - The service owns the transaction (`prisma.$transaction`) and passes `tx` to repository methods that must join it.
 - Repositories return domain types (`WarehouseWithStock`) or API response shapes from `src/types/api.ts`, so routes never see Prisma models.
 - Routes handle HTTP concerns only: validation, status codes, error bodies.
@@ -57,7 +56,6 @@ Both `verifyOrder` (quote, no side effects) and `submitOrder` (persists) share t
 3. `warehouseRepository.decrementStock` per warehouse leg.
 4. `orderRepository.nextOrderNumber` — from a Postgres sequence (`order_number_seq`).
 5. `orderRepository.create` — inserts `Order` → `OrderLine` → `OrderFulfillment` (nested Prisma writes).
-6. `auditService.logMany` — audit rows in the same transaction.
 
 Row locking prevents overselling under concurrent orders against the same warehouse stock.
 
@@ -69,7 +67,7 @@ Order ──< OrderLine ──< OrderFulfillment >── Warehouse
 ```
 
 - `WarehouseStock` composite key `(warehouseId, productId)` — quantity per warehouse per product.
-- `OrderFulfillment` records the actual per-warehouse split (qty, distance, shipping cost) for a placed order — an audit trail of the allocation decision at order time.
+- `OrderFulfillment` records the actual per-warehouse split (qty, distance, shipping cost) for a placed order, so the allocation decision made at order time is kept.
 - Product is modeled generically, but the service currently uses a single `PRODUCT_ID` constant (`domain/product.ts`, single-SKU system).
 
 ## Testing

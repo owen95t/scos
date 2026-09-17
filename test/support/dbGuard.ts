@@ -1,6 +1,6 @@
 // Runs before every db test file. Fails loudly instead of skipping, and refuses
 // to touch any database that isn't a disposable *_test one, since the suites
-// delete orders and audit rows.
+// delete orders.
 const url = process.env.DATABASE_URL;
 
 if (!url) {

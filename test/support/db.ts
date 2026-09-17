@@ -4,7 +4,6 @@ import { PRODUCT_ID } from "../../src/domain/product.ts";
 
 // Clears order data and restores seeded stock levels.
 export async function resetDb(prisma: PrismaClient): Promise<void> {
-  await prisma.$executeRawUnsafe(`DELETE FROM audit_log`);
   await prisma.orderFulfillment.deleteMany();
   await prisma.orderLine.deleteMany();
   await prisma.order.deleteMany();
