@@ -33,7 +33,8 @@ async function main() {
           productId: product.id,
         },
       },
-      update: { quantity: wh.stock },
+      // Runs on every container start, so never overwrite live stock.
+      update: {},
       create: {
         warehouseId: warehouse.id,
         productId: product.id,

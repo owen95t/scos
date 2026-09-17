@@ -22,4 +22,5 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
 
 EXPOSE 3001
-CMD ["node", "dist/server.js"]
+# Migrations and seed are idempotent, so running them on every start is safe.
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/server.js"]

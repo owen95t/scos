@@ -34,6 +34,7 @@ Environment variables are validated at startup (`src/config/env.ts`); the server
 # Start postgres + api
 docker compose up --build
 
+# The API container runs migrations and the seed on start
 # API: http://localhost:3001
 # Swagger: http://localhost:3001/docs
 ```
@@ -143,8 +144,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 1. **gitleaks** — scans full history for secrets. Runs in parallel with the other jobs; `deploy` waits for it to pass.
 2. **lint** — `pnpm install`, `prisma generate`, `pnpm lint`.
 3. **test-api** — starts a Postgres 16 service, runs migrations and seed, then `pnpm test`.
-4. **build** — `prisma generate`, `pnpm build`.
-5. **deploy** — push to `main` only. Currently a placeholder `echo`; nothing is deployed.
+4. **build** — `docker build`, the same image Render builds.
+5. **deploy** — push to `main` only. Calls the Render deploy hook (`RENDER_DEPLOY_HOOK_URL` secret); skipped with a warning if the secret is not set.
 
 ## Secret Scanning
 
@@ -154,13 +155,22 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 - **CI** — `gitleaks` job in `.github/workflows/ci.yml` scan full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2` pinned to gitleaks 8.28.0. Catches anything committed with `--no-verify`. `deploy` does not run unless this job passes.
 - **Config** — both use `.gitleaks.toml` (the default ruleset). Add allowlist entries there for false positives. When upgrading gitleaks, update the version in both `.husky/pre-commit` and `ci.yml`.
 
-## Production Deploy Notes
+## Deployment (Render)
 
-This project is scoped to local development. For a production deployment:
+`render.yaml` is a Render Blueprint that creates the API (Docker, free plan) and a Postgres 16 database, and wires `DATABASE_URL` between them.
 
-- **API**: Deploy to Fly.io or Render as a Docker container. Set `DATABASE_URL` to a managed Postgres instance (e.g. Neon, Supabase, or Fly Postgres). Run `prisma migrate deploy` as a release command.
-- **Database**: Use a managed Postgres service with connection pooling. The `SELECT ... FOR UPDATE` locking strategy works with standard Postgres; verify compatibility if using a proxy like PgBouncer in transaction mode.
-- **CI/CD**: The GitHub Actions workflow in `.github/workflows/ci.yml` handles lint, test, and build (see [CI/CD](#cicd)). Replace the placeholder `deploy` job with real steps with secrets for your hosting provider.
+1. In Render, choose **New → Blueprint** and select this repo.
+2. In the `scos-api` service settings, copy the **Deploy Hook** URL.
+3. In GitHub, add it as the repository secret `RENDER_DEPLOY_HOOK_URL`.
+
+Auto-deploy is off in `render.yaml`; the CI `deploy` job triggers a deploy only after lint, tests, the Docker build and gitleaks pass on `main`.
+
+On start, the container runs `prisma migrate deploy`, then the seed, then the server. Both are idempotent: the seed only creates missing rows and never overwrites stock. This avoids needing Render's pre-deploy command, which the free plan does not support.
+
+Notes:
+- Render's free Postgres expires after 30 days, and free web services sleep when idle, so the first request after a pause is slow. Use paid plans for anything beyond a demo.
+- With more than one instance, move migrations to a pre-deploy command so they don't run on every instance start.
+- The `SELECT ... FOR UPDATE` locking works with standard Postgres; check compatibility before putting PgBouncer in transaction mode in front of it.
 
 ## What I Would Do Next
 
