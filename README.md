@@ -18,11 +18,9 @@ pnpm install
 docker compose up postgres -d
 
 # Run migrations and seed
-cd apps/api
 cp .env.example .env
 npx prisma migrate deploy
 npx prisma db seed
-cd ../..
 
 # Start API dev server (on :3001)
 pnpm dev
@@ -51,8 +49,11 @@ pnpm test:integration
 ## Project Structure
 
 ```
-apps/api/              — Fastify API with Prisma ORM
-packages/shared-types/ — Shared TypeScript types
+src/                — Fastify API (routes, services, domain, repositories)
+src/shared-types/   — Shared response types (imported as `#shared-types`)
+prisma/             — Schema, migrations, seed
+test/               — Unit, API and integration tests
+openapi.yaml        — API specification
 ```
 
 Frontend lives in a separate repo: `scos-fe/`
@@ -63,7 +64,7 @@ Swagger UI is served at `/docs` when the API is running.
 
 Import [postman/scos-api.postman_collection.json](postman/scos-api.postman_collection.json) into Postman to exercise the API. Its `baseUrl` collection variable defaults to `http://localhost:3001`; run `Submit order` before `Get order details` so the generated order number is captured automatically.
 
-The collection is synchronized from `apps/api/openapi.yaml`. Run `pnpm postman:generate` after changing the API specification. `pnpm postman:check` verifies that the committed collection matches the specification and can be used in CI.
+The collection is synchronized from `openapi.yaml`. Run `pnpm postman:generate` after changing the API specification. `pnpm postman:check` verifies that the committed collection matches the specification and can be used in CI.
 
 ### Endpoints
 
@@ -77,10 +78,9 @@ The collection is synchronized from `apps/api/openapi.yaml`. Run `pnpm postman:g
 - **Fastify** — schema-first validation/serialization (Zod via `fastify-type-provider-zod`) and built-in Swagger generation, with lower overhead than Express.
 - **Prisma** — type-safe queries and migrations matched to the Postgres schema; dropped to raw SQL (`$queryRawUnsafe`/`$executeRawUnsafe`) only where `SELECT ... FOR UPDATE` row locking is needed for oversell-safe stock decrements.
 - **Postgres** — relational data (orders, warehouses, stock) with real transactions and row locks, needed to prevent overselling under concurrent orders.
-- **pnpm workspaces** — monorepo for api/web/shared-types with a single lockfile and fast, disk-efficient installs.
-- **React + Vite** — fast dev server/HMR, minimal config for a small SPA.
+- **pnpm** — fast, disk-efficient installs with a strict lockfile.
 - **Zod** — one schema definition drives both runtime validation and generated OpenAPI types, avoiding drift between API docs and validation.
-- **Vitest** — fast, native ESM/TS support, shared config style with Vite.
+- **Vitest** — fast, native ESM/TS support with minimal config.
 
 ## Logging
 

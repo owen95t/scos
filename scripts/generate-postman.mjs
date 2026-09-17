@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const Converter = require("openapi-to-postmanv2");
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const specPath = path.join(rootDir, "apps/api/openapi.yaml");
+const specPath = path.join(rootDir, "openapi.yaml");
 const collectionPath = path.join(rootDir, "postman/scos-api.postman_collection.json");
 const checkOnly = process.argv.includes("--check");
 

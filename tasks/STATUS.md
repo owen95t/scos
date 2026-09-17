@@ -9,6 +9,5 @@
 | 05 | Repositories + services | Done | Integration test needs PG |
 | 06 | API layer | Done | API tests need PG |
 | 07 | Docker + local dev | Done | Docker daemon not running, files ready |
-| 08 | Frontend | Done | 7/7 tests pass |
 | 09 | CI/CD | Done | |
 | 10 | README | Done | |

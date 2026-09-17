@@ -7,12 +7,12 @@
 
 ## Project
 
-pnpm monorepo:
-- `apps/api` — Fastify API server
-- `packages/shared-types` — shared TypeScript types
+Single-package backend (pnpm):
+- `src/` — Fastify API server
+- `src/shared-types/` — shared TypeScript response types (`#shared-types`)
 
 ## Commands
 
-- `pnpm build` — build all packages
-- `pnpm -r test` — run tests across packages
-- `pnpm --filter api dev` — start API dev server
+- `pnpm build` — compile to `dist/`
+- `pnpm test` — run tests
+- `pnpm dev` — start API dev server

@@ -18,7 +18,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql://scos:scos@postgres:5432/scos
       PORT: "3001"
