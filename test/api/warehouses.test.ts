@@ -1,12 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { WAREHOUSES } from "../../prisma/seedData.js";
 import { createApp } from "../../src/app.js";
 import { createContainer } from "../../src/container.js";
+import { resetDb } from "../support/db.js";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-describe.skipIf(!DATABASE_URL)("Warehouses API", () => {
+describe("Warehouses API", () => {
   let app: FastifyInstance;
   let prisma: PrismaClient;
 
@@ -23,16 +23,23 @@ describe.skipIf(!DATABASE_URL)("Warehouses API", () => {
     await prisma.$disconnect();
   });
 
-  it("GET /api/warehouses returns all warehouses with stock", async () => {
+  beforeEach(async () => {
+    await resetDb(prisma);
+  });
+
+  it("GET /api/warehouses returns all seeded warehouses with stock", async () => {
     const res = await app.inject({
       method: "GET",
       url: "/api/warehouses",
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toHaveLength(6);
-    expect(res.json()[0]).toHaveProperty("name");
-    expect(res.json()[0]).toHaveProperty("stock");
-    expect(res.json()[0].stock[0]).toHaveProperty("quantity");
+    const body: Array<{ name: string; stock: Array<{ quantity: number }> }> = res.json();
+    expect(body.map((w) => w.name).sort()).toEqual(WAREHOUSES.map((w) => w.name).sort());
+
+    for (const seeded of WAREHOUSES) {
+      const warehouse = body.find((w) => w.name === seeded.name)!;
+      expect(warehouse.stock[0].quantity).toBe(seeded.stock);
+    }
   });
 });

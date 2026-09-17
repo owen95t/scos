@@ -3,10 +3,9 @@ import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { createContainer } from "../../src/container.js";
+import { resetDb } from "../support/db.js";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-describe.skipIf(!DATABASE_URL)("Orders API", () => {
+describe("Orders API", () => {
   let app: FastifyInstance;
   let prisma: PrismaClient;
 
@@ -24,16 +23,7 @@ describe.skipIf(!DATABASE_URL)("Orders API", () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe(`DELETE FROM audit_log`);
-    await prisma.orderFulfillment.deleteMany();
-    await prisma.orderLine.deleteMany();
-    await prisma.order.deleteMany();
-    await prisma.$executeRawUnsafe(
-      `UPDATE warehouse_stock SET quantity = CASE warehouse_id
-        WHEN 1 THEN 355 WHEN 2 THEN 578 WHEN 3 THEN 265
-        WHEN 4 THEN 694 WHEN 5 THEN 245 WHEN 6 THEN 419
-       END WHERE product_id = 1`
-    );
+    await resetDb(prisma);
   });
 
   describe("POST /api/orders/verify", () => {
@@ -70,6 +60,18 @@ describe.skipIf(!DATABASE_URL)("Orders API", () => {
 
       expect(res.statusCode).toBe(400);
     });
+
+    it.each([
+      ["zero quantity", { quantity: 0, latitude: 34.0, longitude: -118.0 }],
+      ["negative quantity", { quantity: -5, latitude: 34.0, longitude: -118.0 }],
+      ["non-integer quantity", { quantity: 1.5, latitude: 34.0, longitude: -118.0 }],
+      ["longitude out of range", { quantity: 10, latitude: 34.0, longitude: 181 }],
+    ])("returns 400 for %s", async (_label, payload) => {
+      const res = await app.inject({ method: "POST", url: "/api/orders/verify", payload });
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toBe("VALIDATION_ERROR");
+    });
   });
 
   describe("POST /api/orders", () => {
@@ -98,6 +100,19 @@ describe.skipIf(!DATABASE_URL)("Orders API", () => {
 
       expect(res.statusCode).toBe(409);
       expect(res.json().error).toBe("INSUFFICIENT_STOCK");
+    });
+
+    it("returns 409 when shipping exceeds 15% of the order", async () => {
+      // South Pacific: more than 6,164 km from every warehouse, so 1 unit is too costly to ship.
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/orders",
+        payload: { quantity: 1, latitude: -50.0, longitude: -140.0 },
+      });
+
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error).toBe("INVALID_ORDER");
+      expect(await prisma.order.count()).toBe(0);
     });
   });
 

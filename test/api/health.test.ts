@@ -6,9 +6,7 @@ import { createContainer } from "../../src/container.js";
 import { healthRoutes } from "../../src/api/routes/health.js";
 import { genReqId } from "../../src/config/logger.js";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-describe.skipIf(!DATABASE_URL)("Health API", () => {
+describe("Health API", () => {
   let app: FastifyInstance;
   let prisma: PrismaClient;
 

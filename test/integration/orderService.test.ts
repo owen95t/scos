@@ -1,12 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { InsufficientStockError } from "../../src/domain/errors.js";
+import { PRODUCT_ID } from "../../src/domain/product.js";
 import { createOrderRepository } from "../../src/repositories/orderRepository.js";
 import { createWarehouseRepository } from "../../src/repositories/warehouseRepository.js";
 import { createOrderService } from "../../src/services/orderService.js";
 import type { ServiceContext } from "../../src/services/orderService.js";
 import { createAuditService } from "../../src/services/auditService.js";
+import type { AuditService } from "../../src/services/auditService.js";
 import type { Logger } from "../../src/types/logger.js";
+import { resetDb, warehouseIdByName } from "../support/db.js";
 
 const noop = () => {};
 const testLogger = {
@@ -16,21 +19,33 @@ const testLogger = {
 
 const testCtx: ServiceContext = { log: testLogger, requestId: "test-req-001" };
 
-const DATABASE_URL = process.env.DATABASE_URL;
+type AuditRow = { action: string; entity_type: string; entity_id: string; request_id: string; data: unknown };
 
-describe.skipIf(!DATABASE_URL)("orderService integration", () => {
+describe("orderService integration", () => {
   let prisma: PrismaClient;
   let orderService: ReturnType<typeof createOrderService>;
+  let laId: number;
 
-  beforeAll(async () => {
-    prisma = new PrismaClient();
-    const auditService = createAuditService(prisma);
-    orderService = createOrderService({
+  function buildService(auditService: AuditService) {
+    return createOrderService({
       prisma,
       warehouseRepository: createWarehouseRepository(prisma),
       orderRepository: createOrderRepository(prisma),
       auditService,
     });
+  }
+
+  async function stockOf(warehouseId: number) {
+    const stock = await prisma.warehouseStock.findUniqueOrThrow({
+      where: { warehouseId_productId: { warehouseId, productId: PRODUCT_ID } },
+    });
+    return stock.quantity;
+  }
+
+  beforeAll(async () => {
+    prisma = new PrismaClient();
+    orderService = buildService(createAuditService(prisma));
+    laId = await warehouseIdByName(prisma, "Los Angeles");
   });
 
   afterAll(async () => {
@@ -38,22 +53,7 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   });
 
   beforeEach(async () => {
-    await prisma.$executeRawUnsafe(`DELETE FROM audit_log`);
-    await prisma.orderFulfillment.deleteMany();
-    await prisma.orderLine.deleteMany();
-    await prisma.order.deleteMany();
-
-    await prisma.$executeRawUnsafe(
-      `UPDATE warehouse_stock SET quantity = CASE warehouse_id
-        WHEN 1 THEN 355
-        WHEN 2 THEN 578
-        WHEN 3 THEN 265
-        WHEN 4 THEN 694
-        WHEN 5 THEN 245
-        WHEN 6 THEN 419
-       END
-       WHERE product_id = 1`
-    );
+    await resetDb(prisma);
   });
 
   it("verifyOrder returns quote without side effects", async () => {
@@ -62,10 +62,8 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
     expect(quote.subtotal).toBe(1500);
     expect(quote.fulfillmentPlan.length).toBeGreaterThan(0);
 
-    const stock = await prisma.warehouseStock.findFirst({
-      where: { warehouseId: 1, productId: 1 },
-    });
-    expect(stock!.quantity).toBe(355);
+    expect(await stockOf(laId)).toBe(355);
+    expect(await prisma.order.count()).toBe(0);
   });
 
   it("submitOrder persists order and decrements stock", async () => {
@@ -73,81 +71,111 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
     expect(result.orderNumber).toMatch(/^ORD-/);
     expect(result.quote.valid).toBe(true);
 
-    const stock = await prisma.warehouseStock.findFirst({
-      where: { warehouseId: 1, productId: 1 },
-    });
-    expect(stock!.quantity).toBe(345);
+    expect(await stockOf(laId)).toBe(345);
+    expect(await prisma.order.count()).toBe(1);
   });
 
-  it("concurrent submissions never oversell", async () => {
-    await prisma.$executeRawUnsafe(
-      `UPDATE warehouse_stock SET quantity = 50 WHERE warehouse_id = 1 AND product_id = 1`
-    );
-    await prisma.$executeRawUnsafe(
-      `UPDATE warehouse_stock SET quantity = 0 WHERE warehouse_id != 1 AND product_id = 1`
-    );
-
-    const promises = Array.from({ length: 10 }, () =>
-      orderService
-        .submitOrder(testCtx, 10, 34.0, -118.0)
-        .then(() => "success" as const)
-        .catch((e) => {
-          if (
-            e instanceof InsufficientStockError ||
-            e.message?.includes("quantity")
-          ) {
-            return "insufficient" as const;
-          }
-          throw e;
-        })
-    );
-
-    const results = await Promise.all(promises);
-    const successes = results.filter((r) => r === "success").length;
-    const failures = results.filter((r) => r === "insufficient").length;
-
-    expect(successes).toBe(5);
-    expect(failures).toBe(5);
-
-    const stock = await prisma.warehouseStock.findFirst({
-      where: { warehouseId: 1, productId: 1 },
+  it("concurrent submissions never oversell and serialize on stock rows", async () => {
+    await prisma.warehouseStock.updateMany({
+      where: { productId: PRODUCT_ID },
+      data: { quantity: 0 },
     });
-    expect(stock!.quantity).toBe(0);
+    await prisma.warehouseStock.update({
+      where: { warehouseId_productId: { warehouseId: laId, productId: PRODUCT_ID } },
+      data: { quantity: 50 },
+    });
+
+    // Only InsufficientStockError is an expected failure; anything else
+    // (e.g. the quantity >= 0 CHECK constraint firing) fails the test.
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        orderService
+          .submitOrder(testCtx, 10, 34.0, -118.0)
+          .then((r) => ({ ok: true as const, orderNumber: r.orderNumber }))
+          .catch((e) => {
+            if (e instanceof InsufficientStockError) return { ok: false as const };
+            throw e;
+          })
+      )
+    );
+
+    const orderNumbers = results.flatMap((r) => (r.ok ? [r.orderNumber] : []));
+    expect(orderNumbers).toHaveLength(5);
+    expect(new Set(orderNumbers).size).toBe(5);
+    expect(results.filter((r) => !r.ok)).toHaveLength(5);
+    expect(await stockOf(laId)).toBe(0);
+
+    // Each transaction must have seen the stock left by the previous one.
+    // Without row locking, several would read the same starting quantity.
+    const entries = await prisma.$queryRawUnsafe<AuditRow[]>(
+      `SELECT action, entity_type, entity_id, request_id, data FROM audit_log
+       WHERE action = 'STOCK_DECREMENTED' AND entity_id = $1`,
+      `${laId}:${PRODUCT_ID}`
+    );
+    const before = entries
+      .map((e) => (e.data as { quantityBefore: number }).quantityBefore)
+      .sort((a, b) => b - a);
+    expect(before).toEqual([50, 40, 30, 20, 10]);
   });
 
-  it("returns 409-equivalent on insufficient stock", async () => {
-    await prisma.$executeRawUnsafe(
-      `UPDATE warehouse_stock SET quantity = 0 WHERE product_id = 1`
-    );
+  it("throws InsufficientStockError when stock is exhausted", async () => {
+    await prisma.warehouseStock.updateMany({
+      where: { productId: PRODUCT_ID },
+      data: { quantity: 0 },
+    });
 
     await expect(
       orderService.submitOrder(testCtx, 1, 34.0, -118.0)
     ).rejects.toThrow(InsufficientStockError);
   });
 
+  it("rolls back stock and order when a later step fails", async () => {
+    const realAudit = createAuditService(prisma);
+    const failingService = buildService({
+      ...realAudit,
+      logMany: async () => {
+        throw new Error("audit write failed");
+      },
+    });
+
+    await expect(
+      failingService.submitOrder(testCtx, 10, 34.0, -118.0)
+    ).rejects.toThrow("audit write failed");
+
+    expect(await stockOf(laId)).toBe(355);
+    expect(await prisma.order.count()).toBe(0);
+    expect(await prisma.orderFulfillment.count()).toBe(0);
+    const audit = await prisma.$queryRawUnsafe<Array<{ n: bigint }>>(
+      `SELECT COUNT(*) AS n FROM audit_log`
+    );
+    expect(Number(audit[0].n)).toBe(0);
+  });
+
   it("submitOrder creates audit log entries", async () => {
     const ctx: ServiceContext = { log: testLogger, requestId: "audit-test-req" };
     await orderService.submitOrder(ctx, 10, 34.0, -118.0);
 
-    const entries = await prisma.$queryRawUnsafe<
-      Array<{ action: string; entity_type: string; entity_id: string; request_id: string; data: unknown }>
-    >(`SELECT action, entity_type, entity_id, request_id, data FROM audit_log ORDER BY id ASC`);
+    const entries = await prisma.$queryRawUnsafe<AuditRow[]>(
+      `SELECT action, entity_type, entity_id, request_id, data FROM audit_log ORDER BY id ASC`
+    );
 
     const stockEntries = entries.filter((e) => e.action === "STOCK_DECREMENTED");
     const orderEntries = entries.filter((e) => e.action === "ORDER_CREATED");
 
-    expect(stockEntries.length).toBeGreaterThan(0);
+    expect(stockEntries).toHaveLength(1);
     expect(orderEntries).toHaveLength(1);
 
     for (const entry of entries) {
       expect(entry.request_id).toBe("audit-test-req");
     }
 
-    const stockEntry = stockEntries[0];
-    const stockData = stockEntry.data as Record<string, unknown>;
-    expect(stockData.quantityBefore).toBeTypeOf("number");
-    expect(stockData.quantityAfter).toBeTypeOf("number");
-    expect((stockData.quantityBefore as number) - (stockData.quantityAfter as number)).toBe(stockData.decremented);
+    const stockData = stockEntries[0].data as Record<string, unknown>;
+    expect(stockData).toMatchObject({
+      warehouseId: laId,
+      quantityBefore: 355,
+      quantityAfter: 345,
+      decremented: 10,
+    });
 
     const orderData = orderEntries[0].data as Record<string, unknown>;
     expect(orderData.quantity).toBe(10);

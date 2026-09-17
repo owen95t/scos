@@ -74,9 +74,12 @@ Order ──< OrderLine ──< OrderFulfillment >── Warehouse
 
 ## Testing
 
-- `test/unit/domain/*` — pure function tests (allocation, pricing, orderCalculator) — no DB.
-- `test/api/*` — route-level tests.
-- `test/integration/orderService.test.ts` — exercises the real transaction against Postgres (`pnpm test:integration`, via `docker-compose.test.yml`).
+Two Vitest projects (`vitest.config.ts`):
+
+- `unit` (`pnpm test`) — `test/unit/domain/*`, pure function tests (allocation, pricing, orderCalculator) — no DB.
+- `db` (`pnpm test:db`) — `test/api/*` route-level tests and `test/integration/orderService.test.ts`, which exercises the real transaction against Postgres, including row locking (the concurrency test checks each transaction saw the previous one's stock) and rollback. Files run serially because they share one database; `test/support/dbGuard.ts` requires a `*_test` database.
+
+`pnpm test:integration` runs both against a disposable Postgres from `docker-compose.test.yml`. Seed data lives in `prisma/seedData.ts` and is reused by test fixtures and `test/support/db.ts`.
 
 ## Deployment shape
 

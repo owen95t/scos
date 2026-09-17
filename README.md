@@ -44,9 +44,14 @@ docker compose up --build
 # Unit tests only (no database needed)
 pnpm test
 
-# Full integration tests (starts disposable Postgres via Docker)
+# API + integration tests against an already-running, migrated and seeded test DB
+DATABASE_URL=postgresql://scos_test:scos_test@localhost:5433/scos_test pnpm test:db
+
+# Everything (starts disposable Postgres via Docker, migrates, seeds, tears down)
 pnpm test:integration
 ```
+
+DB tests fail (rather than skip) when `DATABASE_URL` is unset, and refuse to run unless the database name ends in `_test`, because they wipe order data.
 
 ## Project Structure
 
