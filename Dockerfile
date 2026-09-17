@@ -1,4 +1,5 @@
 FROM node:24-slim AS base
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 WORKDIR /app
 
@@ -13,6 +14,7 @@ RUN npx prisma generate
 RUN pnpm build
 
 FROM base AS runtime
+ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/openapi.yaml ./openapi.yaml
