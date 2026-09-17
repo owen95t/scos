@@ -57,7 +57,7 @@ DB tests fail (rather than skip) when `DATABASE_URL` is unset, and refuse to run
 
 ```
 src/                — Fastify API (routes, services, domain, repositories)
-src/shared-types/   — Shared response types (imported as `#shared-types`)
+src/types/          — API response types and shared type definitions
 prisma/             — Schema, migrations, seed
 test/               — Unit, API and integration tests
 openapi.yaml        — API specification
@@ -176,3 +176,7 @@ This project is scoped to local development. For a production deployment:
 - **API**: Deploy to Fly.io or Render as a Docker container. Set `DATABASE_URL` to a managed Postgres instance (e.g. Neon, Supabase, or Fly Postgres). Run `prisma migrate deploy` as a release command.
 - **Database**: Use a managed Postgres service with connection pooling. The `SELECT ... FOR UPDATE` locking strategy works with standard Postgres; verify compatibility if using a proxy like PgBouncer in transaction mode.
 - **CI/CD**: The GitHub Actions workflow in `.github/workflows/ci.yml` handles lint, test, and build (see [CI/CD](#cicd)). Replace the placeholder `deploy` job with real steps with secrets for your hosting provider.
+
+## Improvements
+
+- **Store money as `Decimal`**: monetary columns (prices, subtotal, discount, shipping cost, total) are currently `Float` (`DOUBLE PRECISION`), which can introduce binary rounding errors (e.g. `0.1 + 0.2 = 0.30000000000000004`). Postgres `NUMERIC` and Prisma's `Decimal` type (`@db.Decimal(12, 2)`) support exact values. The change would be a migration converting the columns (rounding existing values to cents) and calling `.toNumber()` when mapping rows to API responses. For fully exact arithmetic, the pricing/shipping calculations could also use `Prisma.Decimal` instead of `number`.
