@@ -1,1 +1,15 @@
+GITLEAKS_VERSION=8.28.0 # keep in sync with GITLEAKS_VERSION in .github/workflows/ci.yml
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not found on PATH." >&2
+  echo "  Install it: brew install gitleaks (see README > Secret Scanning)" >&2
+  echo "  Or skip this once: git commit --no-verify (CI will still scan)" >&2
+  exit 1
+fi
+
+installed=$(gitleaks version 2>/dev/null)
+if [ "$installed" != "$GITLEAKS_VERSION" ]; then
+  echo "pre-commit: warning: gitleaks $installed installed, CI uses $GITLEAKS_VERSION; results may differ." >&2
+fi
+
 gitleaks git --staged --no-banner --redact

@@ -148,7 +148,7 @@ Orders have a `status` field (default: `confirmed`) and `updated_at` timestamp. 
 
 GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to `main` (Node 20, pnpm 9):
 
-1. **gitleaks** — scans full history for secrets (runs independently).
+1. **gitleaks** — scans full history for secrets. Runs in parallel with the other jobs; `deploy` waits for it to pass.
 2. **lint** — `pnpm install`, `prisma generate`, `pnpm lint`.
 3. **test-api** — starts a Postgres 16 service, runs migrations and seed, then `pnpm test`.
 4. **build** — `prisma generate`, `pnpm build`.
@@ -158,8 +158,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 
 [gitleaks](https://github.com/gitleaks/gitleaks) scan for hardcoded secrets at two points:
 
-- **Pre-commit** — `.husky/pre-commit` run `gitleaks git --staged` on every local commit, block it if a secret is staged. Needs the `gitleaks` binary on PATH (`brew install gitleaks`); hook install automatically via `pnpm install` (husky `prepare` script).
-- **CI** — `gitleaks` job in `.github/workflows/ci.yml` scan full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2`. Catches anything committed with `--no-verify`.
+- **Pre-commit** — `.husky/pre-commit` run `gitleaks git --staged` on every local commit, block it if a secret is staged. Needs the `gitleaks` binary on PATH (`brew install gitleaks`); if it's missing the hook stops with install instructions, and it warns if the installed version differs from the one CI uses. Hook install automatically via `pnpm install` (husky `prepare` script).
+- **CI** — `gitleaks` job in `.github/workflows/ci.yml` scan full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2` pinned to gitleaks 8.28.0. Catches anything committed with `--no-verify`. `deploy` does not run unless this job passes.
+- **Config** — both use `.gitleaks.toml` (the default ruleset). Add allowlist entries there for false positives. When upgrading gitleaks, update the version in both `.husky/pre-commit` and `ci.yml`.
 
 ## Production Deploy Notes
 

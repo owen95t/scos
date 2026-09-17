@@ -1,0 +1,6 @@
+# gitleaks config, used by the pre-commit hook and the CI gitleaks job.
+# Extends the built-in ruleset; add allowlist entries here for false positives.
+title = "scos gitleaks config"
+
+[extend]
+useDefault = true

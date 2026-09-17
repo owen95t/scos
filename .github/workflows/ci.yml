@@ -20,6 +20,7 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: "8.28.0" # keep in sync with .husky/pre-commit
 
   lint:
     runs-on: ubuntu-latest
@@ -87,7 +88,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, gitleaks]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - run: echo "Deploy step placeholder — configure for Fly.io/Render"
