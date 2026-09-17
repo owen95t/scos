@@ -197,7 +197,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 [gitleaks](https://github.com/gitleaks/gitleaks) scans for hardcoded secrets at two points:
 
 - **Pre-commit** — `.husky/pre-commit` runs `gitleaks git --staged` on every local commit and blocks it if a secret is staged. Needs the `gitleaks` binary on PATH (`brew install gitleaks`); if it's missing the hook stops with install instructions, and it warns if the installed version differs from the one CI uses. The hook installs automatically via `pnpm install` (husky `prepare` script).
-- **CI** — the `gitleaks` job in `.github/workflows/ci.yml` scans full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2` pinned to gitleaks 8.28.0. Catches anything committed with `--no-verify`. `deploy` does not run unless this job passes.
+- **CI** — the `gitleaks` job in `.github/workflows/ci.yml` scans full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v3` pinned to gitleaks 8.28.0. Catches anything committed with `--no-verify`. `deploy` does not run unless this job passes.
 - **Config** — both use `.gitleaks.toml` (the default ruleset). Add allowlist entries there for false positives. When upgrading gitleaks, update the version in both `.husky/pre-commit` and `ci.yml`.
 
 ### Deployment (Render)
