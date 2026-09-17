@@ -2,13 +2,44 @@
 
 Order management system for the SCOS Station P1 Pro. Multi-warehouse fulfillment with greedy nearest-warehouse allocation, volume discounts, and Haversine-based shipping cost calculation.
 
-## Prerequisites
+- **API docs:** Swagger UI at `/docs` when the API is running
+- **Architecture:** [ARCHITECTURE.MD](ARCHITECTURE.MD)
+- **Frontend:** lives in a separate repo: `scos-fe/`
+
+## Contents
+
+1. [Quick Start](#quick-start)
+2. [API](#api)
+3. [How It Works](#how-it-works)
+4. [Testing](#testing)
+5. [Technical Decisions](#technical-decisions)
+6. [Logging](#logging)
+7. [CI/CD and Deployment](#cicd-and-deployment)
+8. [Known Limitations](#known-limitations)
+9. [What I Would Do Next](#what-i-would-do-next)
+
+## Quick Start
+
+### Option 1: Docker Compose (recommended)
+
+Needs only Docker and Docker Compose.
+
+```bash
+# Start postgres + api
+docker compose up --build
+
+# The API container runs migrations and the seed on start
+# API: http://localhost:3001
+# Swagger: http://localhost:3001/docs
+```
+
+### Option 2: Local development
+
+Prerequisites:
 
 - Node.js 24 (see `.nvmrc`; `nvm use` picks it up)
 - pnpm 9.x (`npm install -g pnpm`)
 - Docker & Docker Compose (for database)
-
-## Quick Start
 
 ```bash
 # Install dependencies
@@ -28,33 +59,7 @@ pnpm dev
 
 Environment variables are validated at startup (`src/config/env.ts`); the server exits with a list of any missing or invalid values. `pnpm dev` loads `.env` automatically.
 
-## Running with Docker Compose
-
-```bash
-# Start postgres + api
-docker compose up --build
-
-# The API container runs migrations and the seed on start
-# API: http://localhost:3001
-# Swagger: http://localhost:3001/docs
-```
-
-## Testing
-
-```bash
-# Unit tests only (no database needed)
-pnpm test
-
-# API + integration tests against an already-running, migrated and seeded test DB
-DATABASE_URL=postgresql://scos_test:scos_test@localhost:5433/scos_test pnpm test:db
-
-# Everything (starts disposable Postgres via Docker, migrates, seeds, tears down)
-pnpm test:integration
-```
-
-DB tests fail (rather than skip) when `DATABASE_URL` is unset, and refuse to run unless the database name ends in `_test`, because they wipe order data.
-
-## Project Structure
+### Project structure
 
 ```
 src/                — Fastify API (routes, services, domain, repositories)
@@ -64,7 +69,38 @@ test/               — Unit, API and integration tests
 openapi.yaml        — API specification
 ```
 
-## Architecture
+## API
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/orders/verify` | Get a quote (no side effects) |
+| `POST` | `/api/orders` | Submit an order (transactional) |
+| `GET` | `/api/orders/:orderNumber` | Get order details |
+| `GET` | `/api/warehouses` | List warehouses with stock |
+| `GET` | `/health` | Liveness + database connectivity check (`200` when the DB is reachable, `503` otherwise) |
+
+Swagger UI is served at `/docs` when the API is running.
+
+**Order status:** orders have a `status` field (default: `confirmed`) and an `updated_at` timestamp. Warehouse stock rows also track `updated_at`. These are returned in the `GET /api/orders/:orderNumber` response.
+
+### Postman
+
+Import [postman/scos-api.postman_collection.json](postman/scos-api.postman_collection.json) into Postman to exercise the API. Its `baseUrl` collection variable defaults to `http://localhost:3001`; run `Submit order` before `Get order details` so the generated order number is captured automatically.
+
+The collection is synchronized from `openapi.yaml`. Run `pnpm postman:generate` after changing the API specification. `pnpm postman:check` verifies that the committed collection matches the specification and can be used in CI.
+
+## How It Works
+
+### Order calculation
+
+The rules live in `src/domain/`:
+
+1. **Pricing** (`pricing.ts`): $150 per unit, with a volume discount of 5% at 25+ units, 10% at 50+, 15% at 100+ and 20% at 250+.
+2. **Allocation** (`allocation.ts`): warehouses with stock are sorted by Haversine distance to the shipping address, and units are taken from the nearest first until the order is filled. Shipping cost grows linearly with units × distance, so filling from the nearest warehouse first gives the lowest total cost.
+3. **Shipping** (`allocation.ts`): $0.01 per kg per km, at 0.365 kg per unit, summed across all warehouses used.
+4. **Validity** (`orderCalculator.ts`): an order is invalid if there is not enough total stock, or if shipping costs more than 15% of the discounted total. The response includes the reason.
+
+### Architecture
 
 The request flow is:
 
@@ -79,23 +115,34 @@ API → Service → Domain → Repository → Database
 
 For more detail, see [ARCHITECTURE.MD](ARCHITECTURE.MD).
 
-Frontend lives in a separate repo: `scos-fe/`
+### Consistency
 
-## API Documentation
+Order submission runs in a single transaction and locks stock rows with `SELECT ... FOR UPDATE`, so concurrent orders cannot oversell a warehouse.
 
-Swagger UI is served at `/docs` when the API is running.
+## Testing
 
-Import [postman/scos-api.postman_collection.json](postman/scos-api.postman_collection.json) into Postman to exercise the API. Its `baseUrl` collection variable defaults to `http://localhost:3001`; run `Submit order` before `Get order details` so the generated order number is captured automatically.
+### Strategy
 
-The collection is synchronized from `openapi.yaml`. Run `pnpm postman:generate` after changing the API specification. `pnpm postman:check` verifies that the committed collection matches the specification and can be used in CI.
+| Layer | Location | Database | What it covers |
+|---|---|---|---|
+| Unit | `test/unit/domain/` | No | Pricing, discounts, distance, allocation and order validity: the business rules, tested as pure functions |
+| API | `test/api/` | Yes | HTTP routes: request validation, status codes and response shapes |
+| Integration | `test/integration/` | Yes | Order service against real Postgres: transactions and stock updates |
 
-### Endpoints
+### Commands
 
-- `POST /api/orders/verify` — Get a quote (no side effects)
-- `POST /api/orders` — Submit an order (transactional)
-- `GET /api/orders/:orderNumber` — Get order details
-- `GET /api/warehouses` — List warehouses with stock
-- `GET /health` — Liveness + database connectivity check (`200` when the DB is reachable, `503` otherwise)
+```bash
+# Unit tests only (no database needed)
+pnpm test
+
+# API + integration tests against an already-running, migrated and seeded test DB
+DATABASE_URL=postgresql://scos_test:scos_test@localhost:5433/scos_test pnpm test:db
+
+# Everything (starts disposable Postgres via Docker, migrates, seeds, tears down)
+pnpm test:integration
+```
+
+DB tests fail (rather than skip) when `DATABASE_URL` is unset, and refuse to run unless the database name ends in `_test`, because they wipe order data.
 
 ## Technical Decisions
 
@@ -109,6 +156,8 @@ The collection is synchronized from `openapi.yaml`. Run `pnpm postman:generate` 
 ## Logging
 
 Structured logging via Pino with per-request correlation IDs. Every log line in a request's lifecycle carries the same `reqId` — grep it for a full trace.
+
+Logged events: order verify/submit, allocation decisions, stock warnings, validation errors, unhandled errors.
 
 ```bash
 # Configure via environment variables
@@ -131,13 +180,9 @@ NODE_ENV=development  # "production" outputs JSON, anything else uses pino-prett
 {"level":30,"time":1694812473120,"reqId":"req-a3f8b2c1","msg":"submitting order","quantity":50}
 ```
 
-Logged events: order verify/submit, allocation decisions, stock warnings, validation errors, unhandled errors.
+## CI/CD and Deployment
 
-## Order Status
-
-Orders have a `status` field (default: `confirmed`) and `updated_at` timestamp. Warehouse stock rows also track `updated_at`. These are returned in the `GET /api/orders/:orderNumber` response.
-
-## CI/CD
+### CI pipeline
 
 GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to `main` (Node 24 from `.nvmrc`, pnpm 9):
 
@@ -147,15 +192,15 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 4. **build** — `docker build`, the same image Render builds.
 5. **deploy** — push to `main` only. Calls the Render deploy hook (`RENDER_DEPLOY_HOOK_URL` secret); skipped with a warning if the secret is not set.
 
-## Secret Scanning
+### Secret scanning
 
-[gitleaks](https://github.com/gitleaks/gitleaks) scan for hardcoded secrets at two points:
+[gitleaks](https://github.com/gitleaks/gitleaks) scans for hardcoded secrets at two points:
 
-- **Pre-commit** — `.husky/pre-commit` run `gitleaks git --staged` on every local commit, block it if a secret is staged. Needs the `gitleaks` binary on PATH (`brew install gitleaks`); if it's missing the hook stops with install instructions, and it warns if the installed version differs from the one CI uses. Hook install automatically via `pnpm install` (husky `prepare` script).
-- **CI** — `gitleaks` job in `.github/workflows/ci.yml` scan full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2` pinned to gitleaks 8.28.0. Catches anything committed with `--no-verify`. `deploy` does not run unless this job passes.
+- **Pre-commit** — `.husky/pre-commit` runs `gitleaks git --staged` on every local commit and blocks it if a secret is staged. Needs the `gitleaks` binary on PATH (`brew install gitleaks`); if it's missing the hook stops with install instructions, and it warns if the installed version differs from the one CI uses. The hook installs automatically via `pnpm install` (husky `prepare` script).
+- **CI** — the `gitleaks` job in `.github/workflows/ci.yml` scans full repo history on every push/PR to `main`, using `gitleaks/gitleaks-action@v2` pinned to gitleaks 8.28.0. Catches anything committed with `--no-verify`. `deploy` does not run unless this job passes.
 - **Config** — both use `.gitleaks.toml` (the default ruleset). Add allowlist entries there for false positives. When upgrading gitleaks, update the version in both `.husky/pre-commit` and `ci.yml`.
 
-## Deployment (Render)
+### Deployment (Render)
 
 `render.yaml` is a Render Blueprint that creates the API (Docker, free plan) and a Postgres 16 database, and wires `DATABASE_URL` between them.
 
@@ -167,10 +212,15 @@ Auto-deploy is off in `render.yaml`; the CI `deploy` job triggers a deploy only 
 
 On start, the container runs `prisma migrate deploy`, then the seed, then the server. Both are idempotent: the seed only creates missing rows and never overwrites stock. This avoids needing Render's pre-deploy command, which the free plan does not support.
 
-Notes:
-- Render's free Postgres expires after 30 days, and free web services sleep when idle, so the first request after a pause is slow. Use paid plans for anything beyond a demo.
-- With more than one instance, move migrations to a pre-deploy command so they don't run on every instance start.
-- The `SELECT ... FOR UPDATE` locking works with standard Postgres; check compatibility before putting PgBouncer in transaction mode in front of it.
+## Known Limitations
+
+Known gaps in the current code, as opposed to the future direction in the next section.
+
+- **Exact money arithmetic**: monetary columns are stored as `DECIMAL(12,2)`, and amounts are rounded to cents when an order is saved. The pricing and shipping calculations in `src/domain/` still use JavaScript `number`, so the quote returned by `/api/orders/verify` can show unrounded amounts. For fully exact arithmetic, the domain code could use integer cents or `Prisma.Decimal`.
+- **Consolidate the API specification**: there are currently two API specs. Swagger UI (`/docs`) is generated at runtime from the Zod route schemas, while `openapi.yaml` (the source for the Postman collection) is maintained by hand. Nothing checks that they match, so `openapi.yaml` may drift from the real routes. A future fix should settle on one source of truth, e.g. export the Fastify-generated spec to `openapi.yaml` in a script and check it in CI, or generate the Zod schemas from `openapi.yaml`.
+- **Render free plan**: Render's free Postgres expires after 30 days, and free web services sleep when idle, so the first request after a pause is slow. Use paid plans for anything beyond a demo.
+- **Migrations on start**: with more than one instance, move migrations to a pre-deploy command so they don't run on every instance start.
+- **Connection pooling**: the `SELECT ... FOR UPDATE` locking works with standard Postgres; check compatibility before putting PgBouncer in transaction mode in front of it.
 
 ## What I Would Do Next
 
@@ -185,10 +235,3 @@ If this were a real project, I would:
 - Add monitoring, tracing, and alerts for failed transactions, lock waits, and low stock.
 - Add order cancellation and inventory reservation if fulfillment becomes asynchronous.
 - Keep orders and inventory in the same service initially, and split them only when independent scaling or ownership becomes necessary.
-
-## Improvements
-
-Known gaps in the current code, as opposed to the future direction above.
-
-- **Exact money arithmetic**: monetary columns are stored as `DECIMAL(12,2)`, and amounts are rounded to cents when an order is saved. The pricing and shipping calculations in `src/domain/` still use JavaScript `number`, so the quote returned by `/api/orders/verify` can show unrounded amounts. For fully exact arithmetic, the domain code could use integer cents or `Prisma.Decimal`.
-- **Consolidate the API specification**: there are currently two API specs. Swagger UI (`/docs`) is generated at runtime from the Zod route schemas, while `openapi.yaml` (the source for the Postman collection) is maintained by hand. Nothing checks that they match, so `openapi.yaml` may drift from the real routes. A future fix should settle on one source of truth, e.g. export the Fastify-generated spec to `openapi.yaml` in a script and check it in CI, or generate the Zod schemas from `openapi.yaml`.
