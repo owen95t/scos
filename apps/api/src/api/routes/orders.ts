@@ -45,34 +45,7 @@ export function orderRoutes(
           reason: `Order ${orderNumber} not found`,
         };
       }
-      return {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        quantity: order.quantity,
-        subtotal: order.subtotal,
-        discountAmount: order.discountAmount,
-        shippingCost: order.shippingCost,
-        total: order.total,
-        latitude: order.latitude,
-        longitude: order.longitude,
-        status: order.status,
-        createdAt: order.createdAt.toISOString(),
-        updatedAt: order.updatedAt.toISOString(),
-        lines: order.lines.map((line) => ({
-          productId: line.productId,
-          productName: line.product.name,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          discountPercent: line.discountPercent,
-          fulfillments: line.fulfillments.map((f) => ({
-            warehouseId: f.warehouseId,
-            warehouseName: f.warehouse.name,
-            quantity: f.quantity,
-            distanceKm: f.distanceKm,
-            shippingCost: f.shippingCost,
-          })),
-        })),
-      };
+      return order;
     });
   };
 }

@@ -1,15 +1,28 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import type { WarehouseResponse } from "@scos/shared-types";
 import type { WarehouseWithStock } from "../domain/types.js";
 
 export function createWarehouseRepository(prisma: PrismaClient) {
   return {
-    async getAll() {
-      return prisma.warehouse.findMany({
+    async getAll(): Promise<WarehouseResponse[]> {
+      const warehouses = await prisma.warehouse.findMany({
         include: {
           stock: { include: { product: true } },
         },
         orderBy: { id: "asc" },
       });
+
+      return warehouses.map((w) => ({
+        id: w.id,
+        name: w.name,
+        latitude: w.latitude,
+        longitude: w.longitude,
+        stock: w.stock.map((s) => ({
+          productId: s.productId,
+          productName: s.product.name,
+          quantity: s.quantity,
+        })),
+      }));
     },
 
     async getWithStock(productId: number): Promise<WarehouseWithStock[]> {
