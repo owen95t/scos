@@ -10,12 +10,13 @@ import { createContainer } from "./container.js";
 import { orderRoutes } from "./api/routes/orders.js";
 import { warehouseRoutes } from "./api/routes/warehouses.js";
 import { errorHandler } from "./api/middleware/errorHandler.js";
-import { buildLoggerConfig } from "./config/logger.js";
+import { buildLoggerConfig, genReqId } from "./config/logger.js";
+import { healthRoutes } from "./api/routes/health.js";
 
 export async function createApp(container?: ReturnType<typeof createContainer>): Promise<{ app: FastifyInstance; container: ReturnType<typeof createContainer> }> {
   const c = container ?? createContainer();
 
-  const app = Fastify({ logger: buildLoggerConfig() });
+  const app = Fastify({ logger: buildLoggerConfig(), genReqId });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -31,6 +32,7 @@ export async function createApp(container?: ReturnType<typeof createContainer>):
   // Must be set before route plugins register; child contexts copy the handler at load time.
   app.setErrorHandler(errorHandler);
 
+  await app.register(healthRoutes(c.prisma));
   await app.register(orderRoutes(c.orderService, c.orderRepository), { prefix: "/api" });
   await app.register(warehouseRoutes(c.warehouseRepository), { prefix: "/api" });
 

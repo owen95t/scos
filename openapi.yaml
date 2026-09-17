@@ -96,8 +96,37 @@ paths:
                 items:
                   $ref: '#/components/schemas/WarehouseResponse'
 
+  /health:
+    get:
+      summary: Health check
+      description: Reports whether the API can reach the database
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Database unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
 components:
   schemas:
+    HealthResponse:
+      type: object
+      required: [status, database]
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        database:
+          type: string
+          enum: [up, down]
+
     OrderRequest:
       type: object
       required: [quantity, latitude, longitude]
