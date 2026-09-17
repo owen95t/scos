@@ -5,7 +5,7 @@ CREATE TABLE "order_fulfillments" (
     "warehouse_id" INTEGER NOT NULL,
     "quantity" INTEGER NOT NULL,
     "distance_km" DOUBLE PRECISION NOT NULL,
-    "shipping_cost" DOUBLE PRECISION NOT NULL,
+    "shipping_cost" DECIMAL(12,2) NOT NULL,
     CONSTRAINT "order_fulfillments_pkey" PRIMARY KEY ("id")
 );
 

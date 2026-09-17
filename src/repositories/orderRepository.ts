@@ -35,10 +35,10 @@ export function createOrderRepository(prisma: PrismaClient) {
         id: order.id,
         orderNumber: order.orderNumber,
         quantity: order.quantity,
-        subtotal: order.subtotal,
-        discountAmount: order.discountAmount,
-        shippingCost: order.shippingCost,
-        total: order.total,
+        subtotal: order.subtotal.toNumber(),
+        discountAmount: order.discountAmount.toNumber(),
+        shippingCost: order.shippingCost.toNumber(),
+        total: order.total.toNumber(),
         latitude: order.latitude,
         longitude: order.longitude,
         status: order.status,
@@ -48,14 +48,14 @@ export function createOrderRepository(prisma: PrismaClient) {
           productId: line.productId,
           productName: line.product.name,
           quantity: line.quantity,
-          unitPrice: line.unitPrice,
+          unitPrice: line.unitPrice.toNumber(),
           discountPercent: line.discountPercent,
           fulfillments: line.fulfillments.map((f) => ({
             warehouseId: f.warehouseId,
             warehouseName: f.warehouse.name,
             quantity: f.quantity,
             distanceKm: f.distanceKm,
-            shippingCost: f.shippingCost,
+            shippingCost: f.shippingCost.toNumber(),
           })),
         })),
       };
@@ -71,14 +71,18 @@ export function createOrderRepository(prisma: PrismaClient) {
 
     async create(tx: Prisma.TransactionClient, order: NewOrder) {
       const { calc } = order;
+      // Round before summing so the stored total matches its stored parts.
+      const discountAmount = round2(calc.pricing.discountAmount);
+      const shippingCost = round2(calc.shippingCost);
+      const total = round2(calc.pricing.subtotal - discountAmount + shippingCost);
       return tx.order.create({
         data: {
           orderNumber: order.orderNumber,
           quantity: order.quantity,
           subtotal: calc.pricing.subtotal,
-          discountAmount: calc.pricing.discountAmount,
-          shippingCost: calc.shippingCost,
-          total: calc.total,
+          discountAmount,
+          shippingCost,
+          total,
           latitude: order.latitude,
           longitude: order.longitude,
           lines: {

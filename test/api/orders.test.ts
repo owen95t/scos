@@ -135,6 +135,19 @@ describe("Orders API", () => {
       expect(res.json().orderNumber).toBe(orderNumber);
       expect(res.json().lines).toHaveLength(1);
       expect(res.json().lines[0].fulfillments.length).toBeGreaterThan(0);
+
+      // Money is stored as DECIMAL(12,2) and returned as plain numbers.
+      const order = res.json();
+      const cents = (n: number) => Math.round(n * 100);
+      expect(order.subtotal).toBe(1500);
+      expect(order.lines[0].unitPrice).toBe(150);
+      for (const amount of [order.discountAmount, order.shippingCost, order.total]) {
+        expect(amount).toBeTypeOf("number");
+        expect(Number(amount.toFixed(2))).toBe(amount);
+      }
+      expect(cents(order.total)).toBe(
+        cents(order.subtotal) - cents(order.discountAmount) + cents(order.shippingCost)
+      );
     });
 
     it("returns 404 for nonexistent order", async () => {

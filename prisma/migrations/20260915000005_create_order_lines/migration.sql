@@ -4,7 +4,7 @@ CREATE TABLE "order_lines" (
     "order_id" INTEGER NOT NULL,
     "product_id" INTEGER NOT NULL,
     "quantity" INTEGER NOT NULL,
-    "unit_price" DOUBLE PRECISION NOT NULL,
+    "unit_price" DECIMAL(12,2) NOT NULL,
     "discount_percent" DOUBLE PRECISION NOT NULL,
     CONSTRAINT "order_lines_pkey" PRIMARY KEY ("id")
 );
