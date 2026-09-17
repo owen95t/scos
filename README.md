@@ -199,13 +199,16 @@ If this were a real project, I would:
 
 - Add authentication and authorization for sales representatives and warehouse users.
 - Add idempotency keys so retried requests cannot create duplicate orders.
-- Add load and concurrency tests to verify that inventory cannot be oversold.
+- Reduce lock contention: order submission currently locks all stock rows for the product, so submissions run one at a time. I would lock only the warehouses used by the order, or use conditional updates (`quantity >= n`) with a retry.
+- Add load tests that submit orders in parallel against multiple API instances, checking that stock never goes negative and order numbers stay unique.
 - Deploy multiple stateless API instances behind a load balancer, using PostgreSQL as the source of truth.
-- Add monitoring, tracing, and alerts for failed transactions, lock waits, and inventory issues.
+- Add monitoring, tracing, and alerts for failed transactions, lock waits, and low stock.
 - Add order cancellation and inventory reservation if fulfillment becomes asynchronous.
 - Keep orders and inventory in the same service initially, and split them only when independent scaling or ownership becomes necessary.
 
 ## Improvements
+
+Known gaps in the current code, as opposed to the future direction above.
 
 - **Store money as `Decimal`**: monetary columns (prices, subtotal, discount, shipping cost, total) are currently `Float` (`DOUBLE PRECISION`), which can introduce binary rounding errors (e.g. `0.1 + 0.2 = 0.30000000000000004`). Postgres `NUMERIC` and Prisma's `Decimal` type (`@db.Decimal(12, 2)`) support exact values. The change would be a migration converting the columns (rounding existing values to cents) and calling `.toNumber()` when mapping rows to API responses. For fully exact arithmetic, the pricing/shipping calculations could also use `Prisma.Decimal` instead of `number`.
 - **Consolidate the API specification**: there are currently two API specs. Swagger UI (`/docs`) is generated at runtime from the Zod route schemas, while `openapi.yaml` (the source for the Postman collection) is maintained by hand. Nothing checks that they match, so `openapi.yaml` may drift from the real routes. A future fix should settle on one source of truth, e.g. export the Fastify-generated spec to `openapi.yaml` in a script and check it in CI, or generate the Zod schemas from `openapi.yaml`.
