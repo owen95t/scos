@@ -3,7 +3,7 @@ import { hasZodFastifySchemaValidationErrors } from "fastify-type-provider-zod";
 import {
   InsufficientStockError,
   InvalidOrderError,
-} from "../../services/orderService.js";
+} from "../../domain/errors.js";
 
 export function errorHandler(
   err: Error,

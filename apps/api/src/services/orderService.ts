@@ -1,9 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { OrderQuote } from "@scos/shared-types";
-import { allocateOrder, calculateShippingCost } from "../domain/allocation.js";
-import { haversineDistance } from "../domain/distance.js";
+import { InsufficientStockError, InvalidOrderError } from "../domain/errors.js";
 import { calculateOrder } from "../domain/orderCalculator.js";
-import { calculatePricing } from "../domain/pricing.js";
 import type { WarehouseWithStock } from "../domain/types.js";
 import type { Logger } from "../types/logger.js";
 import type { AuditService } from "./auditService.js";
@@ -11,28 +9,6 @@ import type { AuditService } from "./auditService.js";
 export interface ServiceContext {
   log: Logger;
   requestId: string;
-}
-
-export class InsufficientStockError extends Error {
-  readonly requestId?: string;
-  readonly quantity?: number;
-  constructor(message: string, context?: { requestId?: string; quantity?: number }) {
-    super(message);
-    this.name = "InsufficientStockError";
-    this.requestId = context?.requestId;
-    this.quantity = context?.quantity;
-  }
-}
-
-export class InvalidOrderError extends Error {
-  readonly requestId?: string;
-  readonly quantity?: number;
-  constructor(message: string, context?: { requestId?: string; quantity?: number }) {
-    super(message);
-    this.name = "InvalidOrderError";
-    this.requestId = context?.requestId;
-    this.quantity = context?.quantity;
-  }
 }
 
 function toQuote(

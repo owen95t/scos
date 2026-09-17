@@ -1,9 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  createOrderService,
-  InsufficientStockError,
-} from "../../src/services/orderService.js";
+import { InsufficientStockError } from "../../src/domain/errors.js";
+import { createOrderService } from "../../src/services/orderService.js";
 import type { ServiceContext } from "../../src/services/orderService.js";
 import { createAuditService } from "../../src/services/auditService.js";
 import type { Logger } from "../../src/types/logger.js";
