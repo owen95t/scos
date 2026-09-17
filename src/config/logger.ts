@@ -1,13 +1,14 @@
 import type { FastifyServerOptions } from "fastify";
 import { randomUUID } from "node:crypto";
 
+// Top-level Fastify option; it has no effect inside the logger config.
+export const genReqId = () => `req-${randomUUID().slice(0, 8)}`;
+
 export function buildLoggerConfig(): FastifyServerOptions["logger"] {
   const isDev = process.env.NODE_ENV !== "production";
 
   return {
     level: process.env.LOG_LEVEL ?? (isDev ? "debug" : "info"),
-
-    genReqId: () => `req-${randomUUID().slice(0, 8)}`,
 
     serializers: {
       req(request) {
