@@ -159,10 +159,10 @@ export function createOrderService(prisma: PrismaClient, auditService: AuditServ
           );
         }
 
-        const [seqResult] = await tx.$queryRawUnsafe<Array<{ nextval: string }>>(
+        const [seqResult] = await tx.$queryRawUnsafe<Array<{ nextval: bigint }>>(
           `SELECT nextval('order_number_seq')`
         );
-        const orderNumber = `ORD-${seqResult.nextval.padStart(6, "0")}`;
+        const orderNumber = `ORD-${String(seqResult.nextval).padStart(6, "0")}`;
 
         const order = await tx.order.create({
           data: {
