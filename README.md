@@ -26,6 +26,8 @@ npx prisma db seed
 pnpm dev
 ```
 
+Environment variables are validated at startup (`src/config/env.ts`); the server exits with a list of any missing or invalid values. `pnpm dev` loads `.env` automatically.
+
 ## Running with Docker Compose
 
 ```bash
