@@ -144,6 +144,16 @@ SELECT * FROM audit_log WHERE action = 'ORDER_CREATED' ORDER BY timestamp DESC L
 
 Orders have a `status` field (default: `confirmed`) and `updated_at` timestamp. Warehouse stock rows also track `updated_at`. These are returned in the `GET /api/orders/:orderNumber` response.
 
+## CI/CD
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to `main` (Node 20, pnpm 9):
+
+1. **gitleaks** — scans full history for secrets (runs independently).
+2. **lint** — `pnpm install`, `prisma generate`, `pnpm lint`.
+3. **test-api** — starts a Postgres 16 service, runs migrations and seed, then `pnpm test`.
+4. **build** — `prisma generate`, `pnpm build`.
+5. **deploy** — push to `main` only. Currently a placeholder `echo`; nothing is deployed.
+
 ## Secret Scanning
 
 [gitleaks](https://github.com/gitleaks/gitleaks) scan for hardcoded secrets at two points:
@@ -157,4 +167,4 @@ This project is scoped to local development. For a production deployment:
 
 - **API**: Deploy to Fly.io or Render as a Docker container. Set `DATABASE_URL` to a managed Postgres instance (e.g. Neon, Supabase, or Fly Postgres). Run `prisma migrate deploy` as a release command.
 - **Database**: Use a managed Postgres service with connection pooling. The `SELECT ... FOR UPDATE` locking strategy works with standard Postgres; verify compatibility if using a proxy like PgBouncer in transaction mode.
-- **CI/CD**: The GitHub Actions workflow in `.github/workflows/ci.yml` handles lint, test, and build. Add deploy steps with secrets for your hosting provider.
+- **CI/CD**: The GitHub Actions workflow in `.github/workflows/ci.yml` handles lint, test, and build (see [CI/CD](#cicd)). Replace the placeholder `deploy` job with real steps with secrets for your hosting provider.
