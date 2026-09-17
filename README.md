@@ -4,7 +4,7 @@ Order management system for the SCOS Station P1 Pro. Multi-warehouse fulfillment
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js 24 (see `.nvmrc`; `nvm use` picks it up)
 - pnpm 9.x (`npm install -g pnpm`)
 - Docker & Docker Compose (for database)
 
@@ -79,6 +79,7 @@ The collection is synchronized from `openapi.yaml`. Run `pnpm postman:generate` 
 - `POST /api/orders` — Submit an order (transactional)
 - `GET /api/orders/:orderNumber` — Get order details
 - `GET /api/warehouses` — List warehouses with stock
+- `GET /health` — Liveness + database connectivity check (`200` when the DB is reachable, `503` otherwise)
 
 ## Technical Decisions
 
@@ -153,7 +154,7 @@ Orders have a `status` field (default: `confirmed`) and `updated_at` timestamp. 
 
 ## CI/CD
 
-GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to `main` (Node 20, pnpm 9):
+GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to `main` (Node 24 from `.nvmrc`, pnpm 9):
 
 1. **gitleaks** — scans full history for secrets. Runs in parallel with the other jobs; `deploy` waits for it to pass.
 2. **lint** — `pnpm install`, `prisma generate`, `pnpm lint`.
@@ -180,3 +181,4 @@ This project is scoped to local development. For a production deployment:
 ## Improvements
 
 - **Store money as `Decimal`**: monetary columns (prices, subtotal, discount, shipping cost, total) are currently `Float` (`DOUBLE PRECISION`), which can introduce binary rounding errors (e.g. `0.1 + 0.2 = 0.30000000000000004`). Postgres `NUMERIC` and Prisma's `Decimal` type (`@db.Decimal(12, 2)`) support exact values. The change would be a migration converting the columns (rounding existing values to cents) and calling `.toNumber()` when mapping rows to API responses. For fully exact arithmetic, the pricing/shipping calculations could also use `Prisma.Decimal` instead of `number`.
+- **Consolidate the API specification**: there are currently two API specs. Swagger UI (`/docs`) is generated at runtime from the Zod route schemas, while `openapi.yaml` (the source for the Postman collection) is maintained by hand. Nothing checks that they match, so `openapi.yaml` may drift from the real routes. A future fix should settle on one source of truth, e.g. export the Fastify-generated spec to `openapi.yaml` in a script and check it in CI, or generate the Zod schemas from `openapi.yaml`.
