@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { InsufficientStockError } from "../../src/domain/errors.js";
+import { createOrderRepository } from "../../src/repositories/orderRepository.js";
+import { createWarehouseRepository } from "../../src/repositories/warehouseRepository.js";
 import { createOrderService } from "../../src/services/orderService.js";
 import type { ServiceContext } from "../../src/services/orderService.js";
 import { createAuditService } from "../../src/services/auditService.js";
@@ -23,7 +25,12 @@ describe.skipIf(!DATABASE_URL)("orderService integration", () => {
   beforeAll(async () => {
     prisma = new PrismaClient();
     const auditService = createAuditService(prisma);
-    orderService = createOrderService(prisma, auditService);
+    orderService = createOrderService({
+      prisma,
+      warehouseRepository: createWarehouseRepository(prisma),
+      orderRepository: createOrderRepository(prisma),
+      auditService,
+    });
   });
 
   afterAll(async () => {

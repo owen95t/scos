@@ -9,7 +9,12 @@ export function createContainer() {
   const warehouseRepository = createWarehouseRepository(prisma);
   const orderRepository = createOrderRepository(prisma);
   const auditService = createAuditService(prisma);
-  const orderService = createOrderService(prisma, auditService);
+  const orderService = createOrderService({
+    prisma,
+    warehouseRepository,
+    orderRepository,
+    auditService,
+  });
 
   return {
     prisma,

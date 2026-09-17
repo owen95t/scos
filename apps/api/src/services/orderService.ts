@@ -2,13 +2,23 @@ import type { PrismaClient } from "@prisma/client";
 import type { OrderQuote } from "@scos/shared-types";
 import { InsufficientStockError, InvalidOrderError } from "../domain/errors.js";
 import { calculateOrder } from "../domain/orderCalculator.js";
-import type { WarehouseWithStock } from "../domain/types.js";
+import { PRODUCT_ID } from "../domain/product.js";
+import type { OrderRepository } from "../repositories/orderRepository.js";
+import type { WarehouseRepository } from "../repositories/warehouseRepository.js";
 import type { Logger } from "../types/logger.js";
 import type { AuditService } from "./auditService.js";
 
 export interface ServiceContext {
   log: Logger;
   requestId: string;
+}
+
+export interface OrderServiceDeps {
+  // Only used to open transactions; all queries live in repositories.
+  prisma: PrismaClient;
+  warehouseRepository: WarehouseRepository;
+  orderRepository: OrderRepository;
+  auditService: AuditService;
 }
 
 function toQuote(
@@ -32,21 +42,12 @@ function toQuote(
   };
 }
 
-export function createOrderService(prisma: PrismaClient, auditService: AuditService) {
-  async function getWarehousesWithStock(): Promise<WarehouseWithStock[]> {
-    const warehouses = await prisma.warehouse.findMany({
-      include: { stock: true },
-      orderBy: { id: "asc" },
-    });
-    return warehouses.map((w) => ({
-      id: w.id,
-      name: w.name,
-      latitude: w.latitude,
-      longitude: w.longitude,
-      stock: w.stock[0]?.quantity ?? 0,
-    }));
-  }
-
+export function createOrderService({
+  prisma,
+  warehouseRepository,
+  orderRepository,
+  auditService,
+}: OrderServiceDeps) {
   return {
     async verifyOrder(
       ctx: ServiceContext,
@@ -55,7 +56,7 @@ export function createOrderService(prisma: PrismaClient, auditService: AuditServ
       longitude: number
     ): Promise<OrderQuote> {
       ctx.log.info({ quantity, latitude, longitude }, "verifying order");
-      const warehouses = await getWarehousesWithStock();
+      const warehouses = await warehouseRepository.getWithStock(PRODUCT_ID);
       ctx.log.debug({ warehouseCount: warehouses.length, totalStock: warehouses.reduce((s, w) => s + w.stock, 0) }, "warehouses loaded");
       const calc = calculateOrder(warehouses, quantity, { latitude, longitude });
       ctx.log.info({
@@ -76,32 +77,7 @@ export function createOrderService(prisma: PrismaClient, auditService: AuditServ
     ): Promise<{ orderNumber: string; quote: OrderQuote }> {
       ctx.log.info({ quantity, latitude, longitude }, "submitting order");
       return prisma.$transaction(async (tx) => {
-        const rawStocks = await tx.$queryRawUnsafe<
-          Array<{
-            warehouse_id: number;
-            product_id: number;
-            quantity: number;
-            name: string;
-            latitude: number;
-            longitude: number;
-          }>
-        >(
-          `SELECT ws.warehouse_id, ws.product_id, ws.quantity, w.name, w.latitude, w.longitude
-           FROM warehouse_stock ws
-           JOIN warehouses w ON w.id = ws.warehouse_id
-           WHERE ws.product_id = 1
-           ORDER BY ws.warehouse_id ASC
-           FOR UPDATE OF ws`
-        );
-
-        const warehouses: WarehouseWithStock[] = rawStocks.map((r) => ({
-          id: r.warehouse_id,
-          name: r.name,
-          latitude: r.latitude,
-          longitude: r.longitude,
-          stock: r.quantity,
-        }));
-
+        const warehouses = await warehouseRepository.lockStockForUpdate(tx, PRODUCT_ID);
         ctx.log.debug({ warehouseCount: warehouses.length }, "stock locked for allocation");
 
         const calc = calculateOrder(warehouses, quantity, {
@@ -127,46 +103,17 @@ export function createOrderService(prisma: PrismaClient, auditService: AuditServ
         }, "allocation decided");
 
         for (const leg of calc.allocation.legs) {
-          await tx.$executeRawUnsafe(
-            `UPDATE warehouse_stock SET quantity = quantity - $1, updated_at = NOW()
-             WHERE warehouse_id = $2 AND product_id = 1`,
-            leg.quantity,
-            leg.warehouse.id
-          );
+          await warehouseRepository.decrementStock(tx, PRODUCT_ID, leg.warehouse.id, leg.quantity);
         }
 
-        const [seqResult] = await tx.$queryRawUnsafe<Array<{ nextval: bigint }>>(
-          `SELECT nextval('order_number_seq')`
-        );
-        const orderNumber = `ORD-${String(seqResult.nextval).padStart(6, "0")}`;
-
-        const order = await tx.order.create({
-          data: {
-            orderNumber,
-            quantity,
-            subtotal: calc.pricing.subtotal,
-            discountAmount: calc.pricing.discountAmount,
-            shippingCost: calc.shippingCost,
-            total: calc.total,
-            latitude,
-            longitude,
-            lines: {
-              create: {
-                productId: 1,
-                quantity,
-                unitPrice: calc.pricing.unitPrice,
-                discountPercent: calc.pricing.discountPercent,
-                fulfillments: {
-                  create: calc.allocation.legs.map((leg) => ({
-                    warehouseId: leg.warehouse.id,
-                    quantity: leg.quantity,
-                    distanceKm: Math.round(leg.distanceKm * 100) / 100,
-                    shippingCost: Math.round(leg.shippingCost * 100) / 100,
-                  })),
-                },
-              },
-            },
-          },
+        const orderNumber = await orderRepository.nextOrderNumber(tx);
+        const order = await orderRepository.create(tx, {
+          orderNumber,
+          productId: PRODUCT_ID,
+          quantity,
+          latitude,
+          longitude,
+          calc,
         });
 
         await auditService.logMany(
@@ -174,7 +121,7 @@ export function createOrderService(prisma: PrismaClient, auditService: AuditServ
             ...calc.allocation.legs.map((leg) => ({
               action: "STOCK_DECREMENTED" as const,
               entityType: "warehouse_stock",
-              entityId: `${leg.warehouse.id}:1`,
+              entityId: `${leg.warehouse.id}:${PRODUCT_ID}`,
               data: {
                 warehouseId: leg.warehouse.id,
                 warehouseName: leg.warehouse.name,
