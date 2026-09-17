@@ -188,7 +188,7 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 
 1. **gitleaks** — scans full history for secrets. Runs in parallel with the other jobs; `deploy` waits for it to pass.
 2. **lint** — `pnpm install`, `prisma generate`, `pnpm lint`.
-3. **test-api** — starts a Postgres 16 service, runs migrations and seed, then `pnpm test`.
+3. **test-api** — starts a Postgres 16 service, runs migrations and seed, then unit tests (`pnpm test`) and DB tests (`pnpm test:db`).
 4. **build** — `docker build`, the same image Render builds.
 5. **deploy** — push to `main` only. Calls the Render deploy hook (`RENDER_DEPLOY_HOOK_URL` secret); skipped with a warning if the secret is not set.
 
