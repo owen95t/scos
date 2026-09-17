@@ -2,6 +2,7 @@
 
 Order management system for the SCOS Station P1 Pro. Multi-warehouse fulfillment with greedy nearest-warehouse allocation, volume discounts, and Haversine-based shipping cost calculation.
 
+- **Live demo:** https://scos-api.onrender.com ([Swagger UI](https://scos-api.onrender.com/docs)). It runs on Render's free plan, so the first request after it has been idle can take 30–60 seconds.
 - **API docs:** Swagger UI at `/docs` when the API is running
 - **Architecture:** [ARCHITECTURE.MD](ARCHITECTURE.MD)
 - **Frontend:** lives in a separate repo: `scos-fe/`
@@ -201,6 +202,8 @@ GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and PR to 
 - **Config** — both use `.gitleaks.toml` (the default ruleset). Add allowlist entries there for false positives. When upgrading gitleaks, update the version in both `.husky/pre-commit` and `ci.yml`.
 
 ### Deployment (Render)
+
+The API is deployed at https://scos-api.onrender.com (health check: [`/health`](https://scos-api.onrender.com/health)).
 
 `render.yaml` is a Render Blueprint that creates the API (Docker, free plan) and a Postgres 16 database, and wires `DATABASE_URL` between them.
 
