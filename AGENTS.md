@@ -4,6 +4,7 @@
 
 - Trunk-based development: commit directly to `main`. No feature branches.
 - Keep commits small and focused.
+- Never add AI attribution to commits or PRs: no `Co-Authored-By:` trailers for Claude or any other AI tool, and no "Generated with ..." lines.
 
 ## Project
 
