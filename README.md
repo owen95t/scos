@@ -72,13 +72,13 @@ openapi.yaml        — API specification
 
 ## API
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/orders/verify` | Get a quote (no side effects) |
-| `POST` | `/api/orders` | Submit an order (transactional) |
-| `GET` | `/api/orders/:orderNumber` | Get order details |
-| `GET` | `/api/warehouses` | List warehouses with stock |
-| `GET` | `/health` | Liveness + database connectivity check (`200` when the DB is reachable, `503` otherwise) |
+| Method | Path                       | Description                                                                              |
+| ------ | -------------------------- | ---------------------------------------------------------------------------------------- |
+| `POST` | `/api/orders/verify`       | Get a quote (no side effects)                                                            |
+| `POST` | `/api/orders`              | Submit an order (transactional)                                                          |
+| `GET`  | `/api/orders/:orderNumber` | Get order details                                                                        |
+| `GET`  | `/api/warehouses`          | List warehouses with stock                                                               |
+| `GET`  | `/health`                  | Liveness + database connectivity check (`200` when the DB is reachable, `503` otherwise) |
 
 Swagger UI is served at `/docs` when the API is running.
 
@@ -124,11 +124,11 @@ Order submission runs in a single transaction and locks stock rows with `SELECT 
 
 ### Strategy
 
-| Layer | Location | Database | What it covers |
-|---|---|---|---|
-| Unit | `test/unit/domain/` | No | Pricing, discounts, distance, allocation and order validity: the business rules, tested as pure functions |
-| API | `test/api/` | Yes | HTTP routes: request validation, status codes and response shapes |
-| Integration | `test/integration/` | Yes | Order service against real Postgres: transactions and stock updates |
+| Layer       | Location            | Database | What it covers                                                                                            |
+| ----------- | ------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| Unit        | `test/unit/domain/` | No       | Pricing, discounts, distance, allocation and order validity: the business rules, tested as pure functions |
+| API         | `test/api/`         | Yes      | HTTP routes: request validation, status codes and response shapes                                         |
+| Integration | `test/integration/` | Yes      | Order service against real Postgres: transactions and stock updates                                       |
 
 ### Commands
 
@@ -167,6 +167,7 @@ NODE_ENV=development  # "production" outputs JSON, anything else uses pino-prett
 ```
 
 **Dev output** (colorized, human-readable):
+
 ```
 22:14:33.120 INFO  (req-a3f8b2c1): submitting order
     quantity: 50, latitude: 34, longitude: -118
@@ -177,8 +178,15 @@ NODE_ENV=development  # "production" outputs JSON, anything else uses pino-prett
 ```
 
 **Production output** (newline-delimited JSON, for log aggregators):
+
 ```json
-{"level":30,"time":1694812473120,"reqId":"req-a3f8b2c1","msg":"submitting order","quantity":50}
+{
+  "level": 30,
+  "time": 1694812473120,
+  "reqId": "req-a3f8b2c1",
+  "msg": "submitting order",
+  "quantity": 50
+}
 ```
 
 ## CI/CD and Deployment
@@ -230,11 +238,10 @@ Known gaps in the current code, as opposed to the future direction in the next s
 If this were a real project, I would:
 
 - Add authentication and authorization for sales representatives and warehouse users.
-- Add idempotency keys so retried requests cannot create duplicate orders.
 - Add an audit trail. I left it out to keep the scope close to the 4-hour brief. In production, every stock change and order creation would write an `audit_log` row in the same transaction as the change, so a rolled-back order leaves no audit entry. Each row would record the action, the entity, the before and after values, the request ID (matching the log `reqId`) and the authenticated user. This supports investigating stock discrepancies and disputed orders. If write volume grew, I would move to a transactional outbox or change data capture (CDC) feeding an append-only store.
+- Add idempotency keys so retried requests cannot create duplicate orders.
 - Reduce lock contention: order submission currently locks all stock rows for the product, so submissions run one at a time. I would lock only the warehouses used by the order, or use conditional updates (`quantity >= n`) with a retry.
 - Add load tests that submit orders in parallel against multiple API instances, checking that stock never goes negative and order numbers stay unique.
 - Deploy multiple stateless API instances behind a load balancer, using PostgreSQL as the source of truth.
 - Add monitoring, tracing, and alerts for failed transactions, lock waits, and low stock.
 - Add order cancellation and inventory reservation if fulfillment becomes asynchronous.
-- Keep orders and inventory in the same service initially, and split them only when independent scaling or ownership becomes necessary.
