@@ -28,10 +28,11 @@ export async function createApp(container?: ReturnType<typeof createContainer>):
   });
   await app.register(fastifySwaggerUi, { routePrefix: "/docs" });
 
+  // Must be set before route plugins register; child contexts copy the handler at load time.
+  app.setErrorHandler(errorHandler);
+
   await app.register(orderRoutes(c.orderService, c.orderRepository), { prefix: "/api" });
   await app.register(warehouseRoutes(c.warehouseRepository), { prefix: "/api" });
-
-  app.setErrorHandler(errorHandler);
 
   return { app, container: c };
 }
